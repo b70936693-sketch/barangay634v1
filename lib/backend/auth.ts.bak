@@ -1,0 +1,90 @@
+import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import { readDatabase } from "@/lib/backend/store";
+
+export async function getCurrentPortalUser(request: Request) {
+  const authHeader = request.headers.get("authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.replace("Bearer ", "")
+    : null;
+
+  if (!token) {
+    return { portalUser: null, user: null };
+  }
+
+  const authClient = supabaseAdmin ?? supabase;
+  if (!authClient) {
+    console.error('Supabase auth client is not configured. Check SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    return { portalUser: null, user: null };
+  }
+
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(token);
+
+  if (error || !user) {
+    console.error('Supabase auth getUser failed:', error?.message ?? 'unknown error');
+    return { portalUser: null, user: null };
+  }
+
+  const email = user.email;
+  if (!email) {
+    return { portalUser: null, user };
+  }
+
+  const db = await readDatabase();
+  let portalUser = db.users?.find(
+    (record: any) => record.email?.toLowerCase() === email.toLowerCase()
+  );
+
+  if (!portalUser) {
+    // Create portal user if not found
+    const url = new URL(request.url);
+    let role = 'applicant'; // default
+    if (url.pathname.startsWith('/employer')) {
+      role = 'employer';
+    } else if (url.pathname.startsWith('/admin')) {
+      role = 'admin';
+    }
+    portalUser = {
+      id: user.id,
+      role,
+      fullName: user.user_metadata?.full_name || user.email || 'User',
+      email: user.email,
+      phone: user.user_metadata?.phone || '',
+      status: 'verified',
+      createdAt: new Date().toISOString(),
+    };
+    db.users.unshift(portalUser);
+    // Note: This will be saved when writeDatabase is called
+  }
+
+  return { portalUser, user };
+}
+
+export async function requirePortalRole(request: Request, requiredRole: string) {
+  const { portalUser } = await getCurrentPortalUser(request);
+  if (!portalUser) {
+    return null;
+  }
+
+  if (portalUser.role?.toString().toLowerCase() !== requiredRole?.toString().toLowerCase()) {
+    return null;
+  }
+
+  return portalUser;
+}
+
+export function defaultRedirectForRole(role: string) {
+  switch (role?.toString().toLowerCase()) {
+    case "admin":
+      return "/admin";
+    case "employer":
+      return "/employer";
+    case "applicant":
+      return "/applicant";
+    default:
+      return "/";
+  }
+}

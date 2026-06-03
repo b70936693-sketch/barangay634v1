@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="logoTitle">
+  <title id="logoTitle">Barangay 634 logo</title>
+  <rect width="120" height="120" rx="28" fill="#2f6fa4" />
+  <path d="M32 38c0-4.4 3.6-8 8-8h16a8 8 0 0 1 8 8v34a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V38Z" fill="#ffd45d" />
+  <path d="M46 40h16v8H46z" fill="#2f6fa4" />
+  <path d="M40 84h40v10H40z" fill="#fff" opacity="0.25" />
+  <text x="60" y="76" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="34" font-weight="700">634</text>
+  <text x="60" y="102" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="11" letter-spacing="0.3em">BARANGAY</text>
+</svg>

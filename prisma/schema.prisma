@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  employer
+  applicant
+}
+
+enum UserStatus {
+  active
+  pending
+  verified
+  suspended
+}
+
+enum PostType {
+  establishment_job
+  resident_service
+}
+
+enum JobPostStatus {
+  active
+  pending
+  closed
+}
+
+enum ApplicationStatus {
+  pending
+  reviewing
+  for_interview
+  hired
+  rejected
+}
+
+enum VerificationType {
+  ApplicantVerification @map("Applicant Verification")
+  EmployerVerification @map("Employer Verification")
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ReportSeverity {
+  low
+  medium
+  high
+}
+
+enum ReportStatus {
+  open
+  in_review
+  resolved
+}
+
+enum AlertLevel {
+  low
+  medium
+  high
+}
+
+enum AlertStatus {
+  active
+  monitoring
+  resolved
+}
+
+enum ServiceStatus {
+  active
+  paused
+}
+
+model User {
+  id             String           @id @default(uuid()) @db.Uuid
+  role           Role
+  fullName       String           @map("full_name")
+  email          String           @unique
+  phone          String?
+  status         UserStatus
+  createdAt      DateTime         @default(now()) @map("created_at")
+  employerProfile EmployerProfile?
+  applicantProfile ApplicantProfile?
+
+  @@map("users")
+}
+
+model EmployerProfile {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  companyName  String    @map("company_name")
+  contactPerson String   @map("contact_person")
+  headline     String?
+  location     String?
+  verified     Boolean   @default(false)
+  businessType String?
+  user         User      @relation(fields: [userId], references: [id])
+  jobPosts     JobPost[]
+
+  @@unique([userId])
+  @@map("employer_profiles")
+}
+
+model ApplicantProfile {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  fullName       String    @map("full_name")
+  preferredName  String?   @map("preferred_name")
+  email          String
+  phone          String
+  barangay       String
+  address        String?
+  headline       String?
+  bio            String?
+  skills         Json      @db.JsonB
+  documentsReady Json      @map("documents_ready") @db.JsonB
+  resume         Json?     @db.JsonB
+  resumeUrl      String?   @map("resume_url")
+  isPwd          Boolean   @default(false) @map("is_pwd")
+  isSenior       Boolean   @default(false) @map("is_senior")
+  preferredShifts Json?    @map("preferred_shifts") @db.JsonB
+  user           User      @relation(fields: [userId], references: [id])
+  applications   Application[]
+
+  @@unique([userId])
+  @@map("applicant_profiles")
+}
+
+model JobPost {
+  id                   String            @id @default(uuid()) @db.Uuid
+  employerId           String            @db.Uuid
+  title                String
+  position             String
+  postType             PostType          @map("post_type")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  postingStartDate     DateTime?         @map("posting_start_date")
+  postingEndDate       DateTime?         @map("posting_end_date")
+  status               JobPostStatus
+  qualifications       String?
+  requirements         String?
+  description          String?
+  employmentType       String?           @map("employment_type")
+  schedule             String?
+  shifts               Json?             @db.JsonB
+  salary               String?
+  urgency              String?
+  pwdFriendly          Boolean           @default(false) @map("pwd_friendly")
+  seniorFriendly       Boolean           @default(false) @map("senior_friendly")
+  accessibilityFeatures Json?            @map("accessibility_features") @db.JsonB
+  benefits             Json              @default("[]") @db.JsonB
+  employerRequirements Json              @map("employer_requirements") @default("[]") @db.JsonB
+  adminRequirements    Json              @map("admin_requirements") @default("[]") @db.JsonB
+  employer             EmployerProfile   @relation(fields: [employerId], references: [id])
+  applications         Application[]
+
+  @@map("job_posts")
+}
+
+model Application {
+  id              String    @id @default(uuid()) @db.Uuid
+  jobPostId       String    @db.Uuid
+  applicantId     String    @db.Uuid
+  fullName        String    @map("full_name")
+  email           String
+  contact         String
+  position        String
+  appliedDate     DateTime  @default(now()) @map("applied_date")
+  status          ApplicationStatus
+  availability    String?
+  shiftPreference String?   @map("shift_preference")
+  introduction    String?
+  documents       Json      @default("[]") @db.JsonB
+  jobPost         JobPost   @relation(fields: [jobPostId], references: [id])
+  applicant       ApplicantProfile @relation(fields: [applicantId], references: [id])
+  interviews      Interview[]
+
+  @@map("applications")
+}
+
+model Interview {
+  id             String   @id @default(uuid()) @db.Uuid
+  applicationId  String   @db.Uuid
+  applicantName  String   @map("applicant_name")
+  position       String
+  contact        String
+  interviewDate  DateTime? @map("interview_date")
+  interviewTime  String?  @map("interview_time")
+  location       String?
+  application    Application @relation(fields: [applicationId], references: [id])
+
+  @@map("interviews")
+}
+
+model Verification {
+  id          String             @id @default(uuid()) @db.Uuid
+  type        VerificationType
+  subjectName String             @map("subject_name")
+  status      VerificationStatus
+  submittedAt DateTime           @default(now()) @map("submitted_at")
+  email       String?
+  documents   Json?              @db.JsonB
+  notes       String?
+  inviteToken String?            @map("invite_token")
+  inviteSentAt DateTime?         @map("invite_sent_at")
+  approvedAt  DateTime?          @map("approved_at")
+  rejectedAt  DateTime?          @map("rejected_at")
+
+  @@map("verifications")
+}
+
+model Report {
+  id         String         @id @default(uuid()) @db.Uuid
+  category   String?
+  subject    String?
+  severity   ReportSeverity
+  status     ReportStatus
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("reports")
+}
+
+model Alert {
+  id         String      @id @default(uuid()) @db.Uuid
+  description String
+  level      AlertLevel
+  status     AlertStatus
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  @@map("alerts")
+}
+
+model AuditLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  action     String
+  actor      String
+  target     String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model Service {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  applications Int           @default(0)
+  status       ServiceStatus
+
+  @@map("services")
+}

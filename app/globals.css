@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 214 33% 16%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 96%;
+  }
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.employer-portal,
+.applicant-portal {
+  --background: 210 40% 96%;
+  --foreground: 214 35% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 214 35% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 214 35% 18%;
+  --primary: 210 54% 39%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 56% 95%;
+  --secondary-foreground: 210 54% 32%;
+  --muted: 210 43% 96%;
+  --muted-foreground: 215 17% 43%;
+  --accent: 45 96% 66%;
+  --accent-foreground: 212 46% 23%;
+  --destructive: 8 83% 66%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 212 33% 87%;
+  --input: 212 33% 87%;
+  --ring: 210 54% 39%;
+}

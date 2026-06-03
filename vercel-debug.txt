@@ -1,0 +1,56 @@
+> [debug] [2026-04-16T12:51:33.698Z] Vercel CLI 51.4.0
+> [debug] [2026-04-16T12:51:33.721Z] Agent/TTY/nonInteractive: isAgent=false agentName=none stdin.isTTY=true --non-interactive=false explicitFalse=false => nonInteractive=false
+> [debug] [2026-04-16T12:51:33.724Z] user supplied a possible target for deployment or an extension
+> [debug] [2026-04-16T12:51:33.821Z] failed to find extension command with name "vercel---prod"
+> [debug] [2026-04-16T12:51:33.957Z] Setting target to production
+> [debug] [2026-04-16T12:51:33.988Z] Spinner invoked (Retrieving projectGÇª) with a 1000ms delay
+> [debug] [2026-04-16T12:51:33.991Z] Valid access token, skipping token refresh.
+> [debug] [2026-04-16T12:51:34.040Z] #1 GåÆ GET https://api.vercel.com/teams/team_alLsqleWHbQDnHcYCzkshFln
+> [debug] [2026-04-16T12:51:34.044Z] #2 GåÆ GET https://api.vercel.com/v9/projects/prj_z8IB30YoWkjYebeasOv3KdPWQZxv?teamId=team_alLsqleWHbQDnHcYCzkshFln
+> [debug] [2026-04-16T12:51:34.874Z] #1 GåÉ 200 OK: sfo1::7dkst-1776343894317-4aa7580fb171 [834ms]
+> [debug] [2026-04-16T12:51:34.884Z] #2 GåÉ 200 OK: sfo1::fxvf5-1776343894289-2dd9862c4bb4 [840ms]
+> [debug] [2026-04-16T12:51:34.891Z] Error while parsing repo data: ENOENT: no such file or directory, open 'C:\Users\Sarah\barangay634\.git\config'
+> [debug] [2026-04-16T12:51:35.617Z] Failed to determine if Git repo has been modified:
+Error: warning: could not open directory 'AppData/Local/Application Data/': Permission denied
+warning: could not open directory 'AppData/Local/History/': Permission denied
+warning: could not open directory 'AppData/Local/Temporary Internet Files/': Permission denied
+warning: could not open directory 'Application Data/': Permission denied
+warning: could not open directory 'Cookies/': Permission denied
+warning: could not open directory 'Documents/My Music/': Permission denied
+warning: could not open directory 'Documents/My Pictures/': Permission denied
+warning: could not open directory 'Documents/My Videos/': Permission denied
+warning: could not open directory 'Local Settings/': Permission denied
+warning: could not open directory 'My Documents/': Permission denied
+warning: could not open directory 'NetHood/': Permission denied
+warning: could not open directory 'PrintHood/': Permission denied
+warning: could not open directory 'Recent/': Permission denied
+warning: could not open directory 'SendTo/': Permission denied
+warning: could not open directory 'Start Menu/': Permission denied
+warning: could not open directory 'Templates/': Permission denied
+System.Management.Automation.RemoteException
+> [debug] [2026-04-16T12:51:35.657Z] Spinner invoked (Deploying b70936693-7380s-projects/barangay634) with a 0ms delay
+[client-debug] 2026-04-16T12:51:35.658Z Creating deployment...
+[client-debug] 2026-04-16T12:51:35.659Z Provided 'path' is a directory.
+[client-debug] 2026-04-16T12:51:35.668Z Found 26 rules in .vercelignore
+[client-debug] 2026-04-16T12:51:35.668Z Building file tree...
+[client-debug] 2026-04-16T12:51:35.702Z Found 210 files in the specified directory
+> [debug] [2026-04-16T12:51:35.710Z] Error: Error: EBUSY: resource busy or locked, open 'C:\Users\Sarah\barangay634\vercel-debug.txt'
+Error: EBUSY: resource busy or locked, open 'C:\Users\Sarah\barangay634\vercel-debug.txt'
+> [debug] [2026-04-16T12:51:35.710Z] handling error: Error: EBUSY: resource busy or locked, open 'C:\Users\Sarah\barangay634\vercel-debug.txt'
+Error: EBUSY: resource busy or locked, open 'C:\Users\Sarah\barangay634\vercel-debug.txt'
+> [debug] [2026-04-16T12:51:37.788Z] Telemetry subprocess killed due to timeout
+> [debug] [2026-04-16T12:51:37.814Z] Telemetry subprocess exited with code null
+> [debug] [2026-04-16T12:51:37.816Z] Spawning C:\Users\Sarah\AppData\Local\npm-cache\_npx\67eb4586ca667318\node_modules\vercel\dist\get-latest-worker.cjs
+> '[debug] [2026-04-16T12:51:37.932Z] Notifying parent we're ready
+> '[debug] [2026-04-16T12:51:37.938Z] Received message from parent: {
+  cacheFile: 'C:\\Users\\Sarah\\AppData\\Local\\com.vercel.cli\\Cache\\package-updates\\vercel-latest.json',
+  distTag: 'latest',
+  name: 'vercel',
+  updateCheckInterval: 86400000
+}
+> '[debug] [2026-04-16T12:51:37.938Z] Disconnecting from parent
+> '[debug] [2026-04-16T12:51:37.940Z] Checking lock file: C:\Users\Sarah\AppData\Local\com.vercel.cli\Cache\package-updates\vercel-latest.lock
+> '[debug] [2026-04-16T12:51:37.943Z] Found lock file with pid: 28204
+> '[debug] [2026-04-16T12:51:37.945Z] Resetting lock file: Error: kill ESRCH
+> '[debug] [2026-04-16T12:51:37.948Z] Initializing lock file with pid 1328
+> '[debug] [2026-04-16T12:51:37.952Z] Fetching https://registry.npmjs.org/-/package/vercel/dist-tags

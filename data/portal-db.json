@@ -1,0 +1,819 @@
+{
+  "users": [
+    {
+      "id": "819d7616-585e-470b-9a6b-f0ebad7d3850",
+      "role": "applicant",
+      "fullName": "Sarah Jane",
+      "email": "sjes.0715@gmail.com",
+      "phone": "",
+      "status": "verified",
+      "createdAt": "2026-04-16T23:27:55.000Z"
+    },
+    {
+      "id": "7b36a8fa-32ea-4f4e-b297-d1aa4a42d177",
+      "role": "employer",
+      "fullName": "Iah",
+      "email": "irishsaturinas07@gmail.com",
+      "phone": "",
+      "status": "verified",
+      "createdAt": "2026-04-16T23:28:56.000Z"
+    },
+    {
+      "id": "ad858fc5-3024-4090-93c8-2f422c3499aa",
+      "role": "employer",
+      "fullName": "Matteo Saturinas",
+      "email": "irenesaturinas04@gmail.com",
+      "phone": "",
+      "status": "pending",
+      "createdAt": "2026-04-20T14:17:44.000Z"
+    },
+    {
+      "id": "57d9b26e-b205-4b58-9a05-ae1bddc47d6c",
+      "role": "admin",
+      "fullName": "Iresh Saturinas",
+      "email": "b70936693@gmail.com",
+      "phone": "",
+      "status": "verified",
+      "createdAt": "2026-04-15T03:00:15.000Z"
+    },
+    {
+      "id": "62acea16-b46d-455d-a33c-2246aeb09275",
+      "role": "applicant",
+      "fullName": "Kyla Saysay",
+      "email": "yurfoger@gmail.com",
+      "phone": "",
+      "status": "verified",
+      "createdAt": "2026-04-22T02:11:56.000Z"
+    }
+  ],
+  "employerProfiles": [
+    {
+      "id": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "userId": "7b36a8fa-32ea-4f4e-b297-d1aa4a42d177",
+      "companyName": "Iah's Business",
+      "contactPerson": "Iah",
+      "headline": "New employer account",
+      "location": "Barangay 634",
+      "verified": false,
+      "businessType": "Pending business type"
+    },
+    {
+      "id": "583c9f04-56e5-4eeb-96f7-241ecab2b833",
+      "userId": "ad858fc5-3024-4090-93c8-2f422c3499aa",
+      "companyName": "Matteo Saturinas's Business",
+      "contactPerson": "Matteo Saturinas",
+      "headline": "New employer account",
+      "location": "Barangay 634",
+      "verified": true,
+      "businessType": "Pending business type"
+    }
+  ],
+  "applicantProfiles": [
+    {
+      "id": "fb91f553-44d2-45fb-a5fd-e14400d670ee",
+      "userId": "62acea16-b46d-455d-a33c-2246aeb09275",
+      "fullName": "Kyla Saysay",
+      "preferredName": "Kyky",
+      "email": "yurfoger@gmail.com",
+      "phone": "09198440403",
+      "barangay": "634",
+      "address": "Barangay 634",
+      "headline": "",
+      "bio": "2003",
+      "skills": [],
+      "documentsReady": []
+    },
+    {
+      "id": "58b06d82-626d-4e8b-b6c8-a37b28825199",
+      "userId": "819d7616-585e-470b-9a6b-f0ebad7d3850",
+      "fullName": "Sarah Jane",
+      "preferredName": "Sarah",
+      "email": "sjes.0715@gmail.com",
+      "phone": "09198440302",
+      "barangay": "Barangay 634",
+      "address": " Valencia St. Sta. Mesa, Manila, Metro Manila, NCR, Philippines.",
+      "headline": "Applicant",
+      "bio": "Just living ",
+      "skills": [],
+      "documentsReady": []
+    }
+  ],
+  "jobPosts": [
+    {
+      "id": "e5dbfd80-ce3b-4ec2-828c-f481fabb4bc4",
+      "employerId": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "title": "New Job Opportunity in Barangay 634",
+      "position": "Store Staff",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-19T11:29:40.000Z",
+      "status": "closed",
+      "qualifications": "High school diploma or equivalent, relevant work experience preferred, basic computer skills, good communication.",
+      "requirements": "Valid ID, Proof of address",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Updated resume/CV",
+        "Barangay clearance"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Proof of address"
+      ]
+    },
+    {
+      "id": "2c35f368-1f64-452e-83e4-a1e350871c15",
+      "employerId": "583c9f04-56e5-4eeb-96f7-241ecab2b833",
+      "title": "Store Staff Needed",
+      "position": "Cashier",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-22T03:29:24.000Z",
+      "status": "closed",
+      "qualifications": "HS grad, computer skills, good comm.",
+      "requirements": "Valid ID, Clearance",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Resume",
+        "ID"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Clearance"
+      ]
+    },
+    {
+      "id": "92cbc564-c27d-4ceb-879e-aa919e2ab97d",
+      "employerId": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "title": "Store Staff Needed",
+      "position": "Cashier",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-22T02:08:56.000Z",
+      "status": "closed",
+      "qualifications": "HS grad, computer skills, good comm.",
+      "requirements": "Valid ID, Clearance",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Resume",
+        "ID"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Clearance"
+      ]
+    },
+    {
+      "id": "710d6463-ab01-4a39-b61a-7bdbaf85cb1b",
+      "employerId": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "title": "Service Crew",
+      "position": "Store Staff",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-19T11:50:29.000Z",
+      "status": "active",
+      "qualifications": "High school diploma or equivalent, relevant work experience preferred, basic computer skills, good communication.",
+      "requirements": "Valid ID, Proof of address",
+      "description": "Core Responsibilities\nService crew members interact directly with customers, taking orders, serving food and drinks, and handling payments through POS systems or cash registers. They ensure that customers are welcomed warmly, answer menu inquiries, and provide recommendations when needed. Maintaining a clean and organized environment is essential, including clearing tables, wiping surfaces, and restocking supplies. In some establishments, they assist in light food preparation, line cooking, or beverage assembly.",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Updated resume/CV",
+        "Barangay clearance"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Proof of address"
+      ]
+    },
+    {
+      "id": "22727628-1694-4125-830a-9c390c8506a2",
+      "employerId": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "title": "New Job Opportunity in Barangay 634",
+      "position": "Store Staff",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-20T08:50:00.000Z",
+      "status": "closed",
+      "qualifications": "High school diploma or equivalent, relevant work experience preferred, basic computer skills, good communication.",
+      "requirements": "Valid ID, Proof of address",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Updated resume/CV",
+        "Barangay clearance"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Proof of address"
+      ]
+    },
+    {
+      "id": "0427481c-01a6-45fa-a445-7c86d8f35e91",
+      "employerId": "583c9f04-56e5-4eeb-96f7-241ecab2b833",
+      "title": "New Job Opportunity in Barangay 634",
+      "position": "Store Staff",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-20T14:18:19.000Z",
+      "status": "closed",
+      "qualifications": "High school diploma or equivalent, relevant work experience preferred, basic computer skills, good communication.",
+      "requirements": "Valid ID, Proof of address",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Updated resume/CV",
+        "Barangay clearance"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Proof of address"
+      ]
+    },
+    {
+      "id": "2598a54d-e14f-4281-9bd0-d5c4a34d325c",
+      "employerId": "d50f6846-2712-4728-bbd8-ee7f51879737",
+      "title": "Looking for Full-Time Encoder",
+      "position": "Encoder",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-27T18:35:11.000Z",
+      "status": "active",
+      "qualifications": "HS grad, computer skills, good comm.",
+      "requirements": "Valid ID, Clearance",
+      "description": "Key Responsibilities\nEncoders primarily handle the entry and management of data from various sources, including paper documents, forms, invoices, medical records, and digital files, into structured systems for organizational use. Core duties include:",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Resume",
+        "ID"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Clearance"
+      ]
+    },
+    {
+      "id": "907895a0-6f97-48eb-a838-145b78a87cef",
+      "employerId": "583c9f04-56e5-4eeb-96f7-241ecab2b833",
+      "title": "Store Staff Needed",
+      "position": "Cashier",
+      "postType": "establishment_job",
+      "createdAt": "2026-04-22T03:18:41.000Z",
+      "status": "closed",
+      "qualifications": "HS grad, computer skills, good comm.",
+      "requirements": "Valid ID, Clearance",
+      "description": "",
+      "employmentType": "Full-time",
+      "schedule": "Flexible",
+      "salary": "Competitive",
+      "urgency": "normal",
+      "benefits": [],
+      "employerRequirements": [
+        "Resume",
+        "ID"
+      ],
+      "adminRequirements": [
+        "Valid ID",
+        "Clearance"
+      ]
+    }
+  ],
+  "applications": [
+    {
+      "id": "2b1acf7d-5ff3-4dad-9846-073a44e4cdf4",
+      "jobPostId": "2598a54d-e14f-4281-9bd0-d5c4a34d325c",
+      "applicantId": "fb91f553-44d2-45fb-a5fd-e14400d670ee",
+      "fullName": "Kyla Saysay",
+      "email": "yurfoger@gmail.com",
+      "contact": "09198440403",
+      "position": "Encoder",
+      "appliedDate": "2026-04-28T17:09:50.000Z",
+      "status": "for_interview",
+      "availability": "Can start next week",
+      "shiftPreference": "Morning or afternoon",
+      "introduction": "Encoder",
+      "documents": [
+        "Screenshot (878).png",
+        "Screenshot (878).png",
+        "Screenshot (878).png",
+        "Screenshot (878).png"
+      ]
+    },
+    {
+      "id": "21de510b-7b67-4277-9a53-0382a4143e72",
+      "jobPostId": "2598a54d-e14f-4281-9bd0-d5c4a34d325c",
+      "applicantId": "fb91f553-44d2-45fb-a5fd-e14400d670ee",
+      "fullName": "Kyla Saysay",
+      "email": "yurfoger@gmail.com",
+      "contact": "09198440403",
+      "position": "Encoder",
+      "appliedDate": "2026-04-28T14:39:20.000Z",
+      "status": "rejected",
+      "availability": "Can start next week",
+      "shiftPreference": "Morning or afternoon",
+      "introduction": "Experienced",
+      "documents": [
+        "Screenshot (878).png",
+        "Screenshot (878).png",
+        "Screenshot (878).png",
+        "Screenshot (878).png"
+      ]
+    },
+    {
+      "id": "0501aab0-747f-4c41-9610-65903554f9dd",
+      "jobPostId": "22727628-1694-4125-830a-9c390c8506a2",
+      "applicantId": "58b06d82-626d-4e8b-b6c8-a37b28825199",
+      "fullName": "Sarah Jane",
+      "email": "sjes.0715@gmail.com",
+      "contact": "09198440403",
+      "position": "Store Staff",
+      "appliedDate": "2026-04-20T21:05:57.000Z",
+      "status": "hired",
+      "availability": "Can start next week",
+      "shiftPreference": "Morning or afternoon",
+      "introduction": "Service Crew",
+      "documents": [
+        "b069fcc6-c41c-446b-9bd5-1015da2cb5c8.jpg",
+        "edaacb83-e38b-4fee-a7c0-1cce443df016.jpg",
+        "edaacb83-e38b-4fee-a7c0-1cce443df016.jpg",
+        "edaacb83-e38b-4fee-a7c0-1cce443df016.jpg"
+      ]
+    },
+    {
+      "id": "4ff2f6ba-27fd-4ef6-89b0-e85ed1f325a9",
+      "jobPostId": "2598a54d-e14f-4281-9bd0-d5c4a34d325c",
+      "applicantId": "fb91f553-44d2-45fb-a5fd-e14400d670ee",
+      "fullName": "Kyla Saysay",
+      "email": "yurfoger@gmail.com",
+      "contact": "09129595403",
+      "position": "Encoder",
+      "appliedDate": "2026-04-27T18:38:32.000Z",
+      "status": "hired",
+      "availability": "Can start next week",
+      "shiftPreference": "Morning",
+      "introduction": "Required Skills and Qualifications\nTo succeed as an encoder, candidates typically need:\nEducational Background: High school diploma or equivalent; some roles may prefer an associate or bachelor’s degree. \n2\nTechnical Skills: Proficiency in computer applications, especially Microsoft Office (Word, Excel, Outlook), familiarity with data entry software, and strong typing skills (often 50+ words per minute),. \n2\nAttention to Detail: Ability to spot errors, inconsistencies, and ensure data accuracy. \n2\nOrganizational Skills: Strong time management, file organization, and the ability to handle multiple tasks simultaneously. \n2\nSoft Skills: Self-motivation, reliability, and effective communication for collaboration and reporting.",
+      "documents": [
+        "Screenshot 2026-04-07 212433.png",
+        "Screenshot (1173).png",
+        "Screenshot 2026-04-08 082558.png",
+        "Screenshot 2026-04-14 102416.png"
+      ]
+    }
+  ],
+  "interviews": [
+    {
+      "id": "a66cb5c9-f0cf-489d-8b3c-a90d6994b61b",
+      "applicationId": "2b1acf7d-5ff3-4dad-9846-073a44e4cdf4",
+      "applicantName": "Kyla Saysay",
+      "position": "Encoder",
+      "contact": "09198440403",
+      "interviewDate": "2026-05-03",
+      "interviewTime": "13:30",
+      "location": "Barangay 634 Hall"
+    }
+  ],
+  "verifications": [
+    {
+      "id": "f5e6ac2a-733c-4527-b2ed-503c5e41e19d",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: Looking for Full-Time Encoder",
+      "status": "pending",
+      "submittedAt": "2026-04-27T18:35:11.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "1015ae3a-cf6f-41c7-8043-d728eae51079",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: Store Staff Needed",
+      "status": "approved",
+      "submittedAt": "2026-04-22T03:29:24.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "443a40fd-e721-4418-a430-0fc911d70a75",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: Store Staff Needed",
+      "status": "approved",
+      "submittedAt": "2026-04-22T03:18:41.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "78f5603a-edb1-4f1c-b28a-b9ebad32e1f9",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: Store Staff Needed",
+      "status": "pending",
+      "submittedAt": "2026-04-22T02:08:56.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "a70884fa-c866-4e3d-b9c4-233435616b7f",
+      "type": "Applicant Verification",
+      "subjectName": "Kyla Saysay",
+      "status": "approved",
+      "submittedAt": "2026-04-21T00:26:53.000Z",
+      "email": "yurfoger@gmail.com",
+      "documents": [
+        "ids/2026-04-21/front-b9acbf34-5ef0-47f9-9fa7-018b96cbae98.jpg",
+        "ids/2026-04-21/back-b4c34915-f935-441a-adcc-628b3beb5b54.jpg"
+      ],
+      "notes": "Submitted from sign up stepper as a applicant account.\nFront ID: ff439467-d5d4-4303-9e71-48ecaaa81514.jpg\nBack ID: ff439467-d5d4-4303-9e71-48ecaaa81514.jpg\nOCR warning: OCR provider is not configured. Set OCR_SPACE_API_KEY to enable text extraction. OCR provider is not configured. Set OCR_SPACE_API_KEY to enable text extraction.",
+      "inviteToken": "6188227d-8d81-45f3-89be-345ef4e655d9",
+      "inviteSentAt": null,
+      "approvedAt": "2026-04-21T01:17:52.000Z",
+      "rejectedAt": null
+    },
+    {
+      "id": "157915ef-1cc5-4250-8030-8ff10e05f2b5",
+      "type": "Applicant Verification",
+      "subjectName": "Amber Torres",
+      "status": "approved",
+      "submittedAt": "2026-04-20T23:36:06.000Z",
+      "email": "js.happythumbs@gmail.com",
+      "documents": [
+        "ids/2026-04-20/front-c5079d0e-7c9b-4c92-a9b1-a6a7221df0da.jpg",
+        "ids/2026-04-20/back-4e0c8e86-7b71-4c79-a31d-439fd55f6d70.jpg"
+      ],
+      "notes": "Submitted from sign up stepper as a applicant account.\nFront ID: ff439467-d5d4-4303-9e71-48ecaaa81514.jpg\nBack ID: ff439467-d5d4-4303-9e71-48ecaaa81514.jpg\nOCR warning: OCR provider is not configured. Set OCR_SPACE_API_KEY to enable text extraction. OCR provider is not configured. Set OCR_SPACE_API_KEY to enable text extraction.",
+      "inviteToken": "0ad13191-bc78-492a-92de-ff13e05e91d3",
+      "inviteSentAt": null,
+      "approvedAt": "2026-04-20T23:56:07.000Z",
+      "rejectedAt": null
+    },
+    {
+      "id": "c2442994-e4f0-4538-bce6-7fd85dbb859a",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: New Job Opportunity in Barangay 634",
+      "status": "approved",
+      "submittedAt": "2026-04-20T14:18:19.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "28c711cf-a6df-4900-80a1-dd87f5387b9c",
+      "type": "Applicant Verification",
+      "subjectName": "Iresh Saturinas",
+      "status": "approved",
+      "submittedAt": "2026-04-20T11:30:35.000Z",
+      "email": "yurforger@gmail.com",
+      "documents": [
+        "form 138.jpg",
+        "fff.png"
+      ],
+      "notes": "Submitted from sign up stepper as a applicant account.",
+      "inviteToken": "450fab5c-2a03-45eb-bc62-6ed470295037",
+      "inviteSentAt": null,
+      "approvedAt": "2026-04-20T14:53:35.000Z",
+      "rejectedAt": null
+    },
+    {
+      "id": "dfff4c40-5981-4f16-aac4-c43a613c37c8",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: New Job Opportunity in Barangay 634",
+      "status": "approved",
+      "submittedAt": "2026-04-20T08:50:00.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "4e0d3ae2-8d9f-4a43-b0c3-3c7e025fe0dd",
+      "type": "Employer Verification",
+      "subjectName": "Job Post: Service Crew",
+      "status": "approved",
+      "submittedAt": "2026-04-19T11:50:29.000Z",
+      "documents": [],
+      "inviteToken": null,
+      "inviteSentAt": null,
+      "approvedAt": null,
+      "rejectedAt": null
+    }
+  ],
+  "reports": [],
+  "alerts": [],
+  "auditLogs": [
+    {
+      "id": "e5ada27a-ba5b-4d21-9d5e-78f96ac880c5",
+      "createdAt": "2026-04-28T17:10:54.795Z",
+      "actor": "Employer",
+      "action": "updated applicant status to for_interview",
+      "target": "Kyla Saysay"
+    },
+    {
+      "id": "f2aafdaf-3877-4012-ac13-d52cc444a3a8",
+      "action": "submitted application",
+      "actor": "Kyla Saysay",
+      "target": "Looking for Full-Time Encoder",
+      "createdAt": "2026-04-28T17:09:50.000Z"
+    },
+    {
+      "id": "d8bfb83b-0446-4d4c-9f9d-2d496c56e8ed",
+      "action": "updated applicant status to rejected",
+      "actor": "Employer",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-28T17:08:58.000Z"
+    },
+    {
+      "id": "a1797c5f-220e-45c9-9c90-57d5feff564c",
+      "action": "updated applicant status to rejected",
+      "actor": "Employer",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-28T17:08:45.000Z"
+    },
+    {
+      "id": "4fb07bf6-a54e-4a01-bb5b-54b36798f20c",
+      "action": "submitted application",
+      "actor": "Kyla Saysay",
+      "target": "Looking for Full-Time Encoder",
+      "createdAt": "2026-04-28T14:39:20.000Z"
+    },
+    {
+      "id": "1118487c-614e-4878-bca6-aad58ee66386",
+      "action": "updated applicant status to hired",
+      "actor": "Employer",
+      "target": "Sarah Jane",
+      "createdAt": "2026-04-28T14:11:15.000Z"
+    },
+    {
+      "id": "e9982aad-2ff0-494d-b9fd-d1d2ec46c0c0",
+      "action": "updated applicant status to hired",
+      "actor": "Employer",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-27T18:56:25.000Z"
+    },
+    {
+      "id": "638c97f0-bf01-420c-a9f3-45acc5173da6",
+      "action": "updated applicant status to hired",
+      "actor": "Employer",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-27T18:56:11.000Z"
+    },
+    {
+      "id": "e25b56f0-8d6c-4a02-928e-7033ac480bd8",
+      "action": "updated applicant profile",
+      "actor": "Kyla Saysay",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-27T18:39:35.000Z"
+    },
+    {
+      "id": "0f791df3-95a7-40e9-bcd2-2128522e8440",
+      "action": "submitted application",
+      "actor": "Kyla Saysay",
+      "target": "Looking for Full-Time Encoder",
+      "createdAt": "2026-04-27T18:38:32.000Z"
+    },
+    {
+      "id": "cbdd0bf4-af00-4b1c-a155-7a5d014ba129",
+      "action": "created job post",
+      "actor": "Iah",
+      "target": "Looking for Full-Time Encoder",
+      "createdAt": "2026-04-27T18:35:11.000Z"
+    },
+    {
+      "id": "4a989bba-3d0a-4566-889d-4dbd8dacfb73",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-27T18:31:48.000Z"
+    },
+    {
+      "id": "79ac988f-eeff-41bc-9515-93f6a1818067",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Job Post: Store Staff Needed",
+      "createdAt": "2026-04-27T18:30:45.000Z"
+    },
+    {
+      "id": "e50a0e06-431e-4f78-a9a7-7846fd007739",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-22T04:33:55.000Z"
+    },
+    {
+      "id": "d8ee5474-f63e-4f75-af1c-8c10dcef9606",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T04:33:47.000Z"
+    },
+    {
+      "id": "2d4950a4-63fd-4bef-8a83-6981a2f3cd89",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T04:24:24.000Z"
+    },
+    {
+      "id": "a1d24b82-c0f2-4be2-85d8-6361b480628b",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T04:24:03.000Z"
+    },
+    {
+      "id": "26892308-14c1-44ca-941c-1b99ca35f1dc",
+      "action": "updated job post closed",
+      "actor": "Barangay Admin",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T04:23:43.000Z"
+    },
+    {
+      "id": "a4fcf312-db26-45e8-b759-2640eb1e6fd5",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Job Post: Store Staff Needed",
+      "createdAt": "2026-04-22T03:31:13.000Z"
+    },
+    {
+      "id": "b87cde79-9485-41d4-aba6-6fedfc47e5bd",
+      "action": "created job post",
+      "actor": "Matteo Saturinas",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T03:29:24.000Z"
+    },
+    {
+      "id": "b0f439ca-c811-4319-90b7-3eea54beebda",
+      "action": "created job post",
+      "actor": "Matteo Saturinas",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T03:18:41.000Z"
+    },
+    {
+      "id": "4485e9de-35c2-47b9-82b2-71f0731b367a",
+      "action": "created job post",
+      "actor": "Iah",
+      "target": "Store Staff Needed",
+      "createdAt": "2026-04-22T02:08:56.000Z"
+    },
+    {
+      "id": "949d8c9f-42d5-4a60-b705-a1ff587685a9",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-21T01:17:52.000Z"
+    },
+    {
+      "id": "35cd67f8-fba2-4fb3-9bfb-f4d05cde6f51",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Kyla Saysay",
+      "createdAt": "2026-04-21T01:17:37.000Z"
+    },
+    {
+      "id": "15c8461b-92e8-4bad-b14b-dde287ff7fcb",
+      "action": "submitted applicant verification",
+      "actor": "Kyla Saysay",
+      "target": "yurfoger@gmail.com",
+      "createdAt": "2026-04-21T00:26:53.000Z"
+    },
+    {
+      "id": "6ba8deff-7fd6-44a8-b7d4-7e8665fddb23",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Amber Torres",
+      "createdAt": "2026-04-20T23:56:07.000Z"
+    },
+    {
+      "id": "c5b1bbb8-4558-47c5-9988-da9ca2e87fb8",
+      "action": "submitted applicant verification",
+      "actor": "Amber Torres",
+      "target": "js.happythumbs@gmail.com",
+      "createdAt": "2026-04-20T23:36:06.000Z"
+    },
+    {
+      "id": "0d0e95a8-d5b9-4af8-bed8-4edb51d91077",
+      "action": "updated applicant profile",
+      "actor": "Sarah Jane",
+      "target": "Sarah Jane",
+      "createdAt": "2026-04-20T21:52:58.000Z"
+    },
+    {
+      "id": "e78eec6f-c942-49f9-a1ac-e54c7432d422",
+      "action": "updated applicant profile",
+      "actor": "Sarah Jane",
+      "target": "Sarah Jane",
+      "createdAt": "2026-04-20T21:52:30.000Z"
+    },
+    {
+      "id": "854757bd-d92c-4d2f-aa08-511a260b9b16",
+      "action": "submitted application",
+      "actor": "Sarah Jane",
+      "target": "New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-20T21:05:57.000Z"
+    },
+    {
+      "id": "5677b585-ecd9-4388-881d-bc92e874b767",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Iresh Saturinas",
+      "createdAt": "2026-04-20T14:53:35.000Z"
+    },
+    {
+      "id": "f83877d8-665f-4952-ad2f-cc65cb95b5f4",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Job Post: New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-20T14:52:42.000Z"
+    },
+    {
+      "id": "259cb99b-45c7-42b0-ab82-75f0434dab04",
+      "action": "created job post",
+      "actor": "Matteo Saturinas",
+      "target": "New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-20T14:18:19.000Z"
+    },
+    {
+      "id": "df782503-b753-49d8-816a-0a1d7f8d8eb0",
+      "action": "created account",
+      "actor": "Matteo Saturinas",
+      "target": "employer",
+      "createdAt": "2026-04-20T14:17:44.000Z"
+    },
+    {
+      "id": "1c8bb675-58a8-4d89-af38-534bdb046be9",
+      "action": "submitted applicant verification",
+      "actor": "Iresh Saturinas",
+      "target": "yurforger@gmail.com",
+      "createdAt": "2026-04-20T11:30:35.000Z"
+    },
+    {
+      "id": "1d210bce-4855-4f79-99ca-4cc240e74a4e",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Job Post: Service Crew",
+      "createdAt": "2026-04-20T08:51:58.000Z"
+    },
+    {
+      "id": "db03d5d3-7412-49d7-83a7-a8ed28f11c28",
+      "action": "marked verification approved",
+      "actor": "Barangay Admin",
+      "target": "Job Post: New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-20T08:51:39.000Z"
+    },
+    {
+      "id": "f689dffa-eaf4-4cca-b1ca-af9ef923ed16",
+      "action": "created job post",
+      "actor": "Iah",
+      "target": "New Job Opportunity in Barangay 634",
+      "createdAt": "2026-04-20T08:50:00.000Z"
+    },
+    {
+      "id": "8e5c5b3f-0772-4dd9-97ff-0a729fdc67ba",
+      "action": "created job post",
+      "actor": "Iah",
+      "target": "Service Crew",
+      "createdAt": "2026-04-19T11:50:29.000Z"
+    },
+    {
+      "id": "dd4991a9-7352-4ce6-9a9c-a0ea72b0a8a5",
+      "action": "created account",
+      "actor": "Iresh Saturinas",
+      "target": "admin",
+      "createdAt": "2026-04-15T03:00:15.000Z"
+    }
+  ],
+  "services": []
+}
