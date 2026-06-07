@@ -46,11 +46,12 @@ export async function PATCH(request: Request) {
     // we've already ensured the caller is an admin and this path is valid.
     if (supabaseAdmin) {
       const adminAny = supabaseAdmin as any;
+      // IMPORTANT: update by id only; do not require current status === pending,
+      // otherwise the mutation can fail and the UI will refetch old status.
       const { data, error } = await adminAny
         .from("job_posts")
         .update(updatePayload)
         .eq("id", jobId)
-        .eq("status", "pending")
         .select()
         .single();
 

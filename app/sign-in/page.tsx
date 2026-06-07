@@ -151,11 +151,14 @@ export default function SignInPage() {
       };
 
       const activeSession = (await waitForSession()) ?? data.session;
+      const bearerToken = activeSession?.access_token ?? expectedToken;
+
       let authResponse: Response | null = null;
 
       try {
         authResponse = await fetch("/api/portal/auth", {
           credentials: "include",
+          headers: { Authorization: `Bearer ${bearerToken}` },
         });
       } catch (error) {
         console.error("Unable to validate sign-in session:", error);

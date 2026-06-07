@@ -1637,10 +1637,15 @@ export function updateJobPostStatus(db: PortalDatabase, jobPostId: string, statu
   } else {
     item.publishedAt = null;
   }
-  // Clear any previous rejection notes when updating status
-  if (status !== "rejected") {
+
+  // Clear any previous rejection notes when updating status (except when explicitly rejected)
+  if (status === "rejected") {
+    // keep existing notes if present (can be overwritten by *_WithNotes)
+    item.rejectionNotes = item.rejectionNotes ?? "";
+  } else {
     item.rejectionNotes = "";
   }
+
   appendAuditLog(db, { actor: "Barangay Admin", action: `updated job post ${status}`, target: item.title });
   return item;
 }

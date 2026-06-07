@@ -59,7 +59,21 @@ export function useAdminAction() {
         method: "PATCH",
         body: JSON.stringify(payload),
       }),
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
+      // Stop optimistic job_posts patching. Always rely on backend response + refetch.
+      // This prevents UI from “going back” when the local mapping doesn’t match canonical DB behavior.
+      const type = variables?.type;
+
+      if (type === "job_post") {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["admin-portal"] }),
+          queryClient.invalidateQueries({ queryKey: ["portal"] }),
+        ]);
+        return;
+      }
+
+      // For non-job_post mutations, keep existing behavior (if any was needed later).
+      // Current codebase relies on invalidation for admin snapshot, so do the same.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-portal"] }),
         queryClient.invalidateQueries({ queryKey: ["portal"] }),

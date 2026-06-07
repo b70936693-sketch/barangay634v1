@@ -57,11 +57,16 @@ export async function PATCH(request: Request) {
 
   if (body.type === "job_post") {
     const hasNotes = typeof body.rejectionNotes === "string";
+    const jobId = body.jobId ?? body.id;
+
+    if (!jobId) {
+      return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+    }
 
     if ((body.status === "closed" || body.status === "rejected") && hasNotes) {
-      result = updateJobPostStatusWithNotes(db, body.id, body.status, body.rejectionNotes);
+      result = updateJobPostStatusWithNotes(db, jobId, body.status, body.rejectionNotes);
     } else {
-      result = updateJobPostStatus(db, body.id, body.status);
+      result = updateJobPostStatus(db, jobId, body.status);
     }
   }
 

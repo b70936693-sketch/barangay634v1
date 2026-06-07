@@ -2,12 +2,23 @@
 
 import { AdminPanel, ActionButton, EmptyState, StatusBadge } from "../_components";
 import { useAdminAction, useAdminPortal } from "../api-client-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+
+import { supabaseClient } from "@/lib/supabase-client";
+
+
+
 
 export default function JobPostsPage() {
   const { data } = useAdminPortal();
   const mutate = useAdminAction();
+
+  const queryClient = useQueryClient();
+
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [dismissReason, setDismissReason] = useState<string>("");
   const [isDismissOpen, setIsDismissOpen] = useState(false);
@@ -18,48 +29,128 @@ export default function JobPostsPage() {
     accessibilityIncluded: true,
   });
 
+  const getJobIdFromEvent = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const closest = (e.currentTarget as HTMLButtonElement).closest('[data-post-id]');
+    return closest?.getAttribute('data-post-id') || selectedPost?.id || null;
+  };
+
   const handleAction = (status: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    const closest = (e.currentTarget as HTMLButtonElement).closest('[data-post-id]');
-    mutate.mutate({
+
+    const jobId = getJobIdFromEvent(e);
+
+    if (!jobId) {
+      // If jobId is missing, do nothing instead of sending an empty jobId to the API.
+      return;
+    }
+
+    const payload = {
       type: "job_post",
-      id: closest?.getAttribute('data-post-id') || selectedPost?.id || '',
+      jobId,
       status,
+    };
+
+    console.log("[AdminJobPosts] PATCH payload (approve/close):", payload);
+
+    mutate.mutate(payload, {
+      onSuccess: (data) => {
+        console.log("[AdminJobPosts] PATCH success (approve/close):", data);
+      },
+      onError: (err: any) => {
+        console.error("[AdminJobPosts] PATCH error (approve/close):", err);
+      },
     });
   };
 
-  const confirmDismiss = () => {
-    if (!selectedPost) return;
+  const openDismissModal = (post: any) => {
+    setSelectedPost(post);
+    setDismissReason("");
+    setIsDismissOpen(true);
+  };
+
+  const confirmDismiss = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    e?.stopPropagation();
+    const jobId = e ? getJobIdFromEvent(e) : selectedPost?.id;
+    if (!jobId) return;
+
     const notes = dismissReason.trim();
     if (!notes) return;
 
-    mutate.mutate(
-      {
-        type: "job_post",
-        id: selectedPost.id,
-        status: "rejected",
-        rejectionNotes: `Under Review: ${notes}`,
+    const payload = {
+      type: "job_post",
+      jobId,
+      status: "rejected",
+      rejectionNotes: `Under Review: ${notes}`,
+    };
+
+    console.log("[AdminJobPosts] PATCH payload (dismiss):", payload);
+
+    mutate.mutate(payload, {
+      onSuccess: (data) => {
+        console.log("[AdminJobPosts] PATCH success (dismiss):", data);
+        setDismissReason("");
+        setIsDismissOpen(false);
+        setSelectedPost(null);
       },
-      {
-        onSuccess: () => {
-          setDismissReason("");
-          setIsDismissOpen(false);
-          setSelectedPost(null);
-        },
-      }
-    );
+      onError: (err: any) => {
+        console.error("[AdminJobPosts] PATCH error (dismiss):", err);
+      },
+    });
   };
+
 
 
   const handleModalAction = (status: string) => {
     if (!selectedPost) return;
-    mutate.mutate({ type: "job_post", id: selectedPost.id, status });
+    mutate.mutate({ type: "job_post", jobId: selectedPost.id, status });
     setSelectedPost(null);
   };
+
+  // Realtime: keep admin snapshot in sync when job_posts change.
+  useEffect(() => {
+    let channel: any = null;
+
+
+    const subscribe = () => {
+      try {
+        channel = supabaseClient
+          .channel("admin-job-posts-realtime")
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "job_posts",
+            },
+            () => {
+              void queryClient.invalidateQueries({ queryKey: ["admin-portal"] });
+              void queryClient.invalidateQueries({ queryKey: ["portal"] });
+            }
+          )
+          .subscribe();
+      } catch (e) {
+        console.error("Realtime subscription failed:", e);
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      try {
+        if (channel) {
+          supabaseClient.removeChannel(channel);
+        }
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
 
   const pendingCount = data?.jobPosts?.filter((post: any) => post.status === "pending").length ?? 0;
   const dismissedCount = data?.jobPosts?.filter((post: any) => post.status === "rejected" || post.status === "closed").length ?? 0;
   const activeCount = data?.jobPosts?.filter((post: any) => post.status === "active").length ?? 0;
+
 
   const renderListOrText = (value: any) => {
     if (!value) return null;
@@ -110,9 +201,7 @@ export default function JobPostsPage() {
                     label="Dismiss"
                     onClickAction={(e) => {
                       e.stopPropagation();
-                      setSelectedPost(null); // prevent detail modal overlay conflicts
-                      setDismissReason("");
-                      setIsDismissOpen(true);
+                      openDismissModal(post);
                     }}
                   />
                 </>
@@ -166,7 +255,7 @@ export default function JobPostsPage() {
 
           <DialogFooter className="pt-4 flex gap-2 justify-end">
             <ActionButton label="Cancel" variant="secondary" onClickAction={() => { setIsDismissOpen(false); setDismissReason(""); }} />
-            <ActionButton label="Under Review" variant="default" onClickAction={() => { confirmDismiss(); }} disabled={!dismissReason.trim()} />
+            <ActionButton label="Under Review" variant="default" onClickAction={(e) => { confirmDismiss(e); }} disabled={!dismissReason.trim()} />
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -305,21 +394,38 @@ export default function JobPostsPage() {
           <DialogFooter className="pt-4 flex gap-2 justify-end">
             {selectedPost?.status === 'pending' ? (
               <>
-                <ActionButton label="Approve" variant="default" onClickAction={() => handleModalAction('active')} />
+                <ActionButton
+                  label="Approve"
+                  variant="default"
+                  onClickAction={() => handleModalAction('active')}
+                />
                 <ActionButton
                   label="Dismiss"
                   variant="default"
-                  onClickAction={() => {
-                    setIsDismissOpen(true);
-                    setDismissReason("");
+                  onClickAction={(e) => {
+                    e.stopPropagation();
+                    openDismissModal(selectedPost);
                   }}
                 />
               </>
             ) : (
               <>
-                <ActionButton label="Close Post" onClickAction={() => handleModalAction('closed')} />
+                <ActionButton
+                  label="Close Post"
+                  onClickAction={(e) => {
+                    e.stopPropagation();
+                    handleModalAction('closed');
+                  }}
+                />
                 {selectedPost?.status === 'rejected' && (
-                  <ActionButton label="Clear Rejection" variant="secondary" onClickAction={() => handleModalAction('closed')} />
+                  <ActionButton
+                    label="Clear Rejection"
+                    variant="secondary"
+                    onClickAction={(e) => {
+                      e.stopPropagation();
+                      handleModalAction('closed');
+                    }}
+                  />
                 )}
               </>
             )}
