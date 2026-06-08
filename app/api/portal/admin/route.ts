@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { requirePortalRole } from "@/lib/backend/auth";
 import { readDatabase, sendVerificationInvite, updateAlert, updateJobPostStatus, updateJobPostStatusWithNotes, updateReport, updateService, updateVerification, withDerivedData, writeDatabase } from "@/lib/backend/store";
+import { supabaseAdmin } from "@/lib/supabase-server";
+
 
 
 export async function GET(request: Request) {
@@ -10,6 +12,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+
+
+  // Fallback to JSON-derived DB layer
   const db = await readDatabase();
   return NextResponse.json({
     ...withDerivedData(db, user),

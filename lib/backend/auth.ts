@@ -62,9 +62,10 @@ async function getAuthenticatedSupabaseUser(request: Request): Promise<SupabaseA
 
       if (error || !user) {
         console.warn(
-          "Supabase auth getUser failed for authorization token. Falling back to cookie session.",
+          "Supabase auth getUser failed for authorization token. Rejecting request (no cookie session fallback):",
           error?.message ?? "unknown error"
         );
+        return null;
       } else {
         return user;
       }

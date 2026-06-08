@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { useState } from 'react';
-import { useListApplicants, useUpdateApplicantStatus } from '@workspace/api-client-react';
+import { useListApplicants, useUpdateApplicantStatus } from '../api-client-react';
 import { Search, Eye, Filter, Mail, Phone, CheckCircle, XCircle } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

@@ -12,6 +12,116 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Prefer Supabase when configured to avoid JSON-store sync issues.
+  if (supabaseAdmin) {
+    try {
+      // Find employer profile in Supabase by user_id.
+        const { data: employerProfile, error: employerProfileError } = await supabaseAdmin
+        .from("employer_profiles")
+        .select("id")
+        .eq("user_id", portalUser.id)
+        .maybeSingle();
+
+      if (employerProfileError || !employerProfile?.id) {
+        // If missing, create via JSON store helper (which also syncs to Supabase).
+        const db = await readDatabase();
+        const created = await getOrCreateEmployerProfile(db, portalUser.id, supabaseAdmin);
+        if (!created?.id) {
+          return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+        }
+
+        const { data: rechecked } = await supabaseAdmin
+          .from("employer_profiles")
+          .select("id")
+          .eq("userId", portalUser.id)
+          .maybeSingle();
+
+        if (!rechecked?.id) {
+          return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+        }
+
+        // Continue with created id
+        const employerId = created.id;
+
+        const { data: jobPosts, error: jobPostsError } = await supabaseAdmin
+          .from("job_posts")
+          .select("*")
+          .eq("employer_id", employerId)
+          .order("created_at", { ascending: false });
+
+        if (jobPostsError) {
+          return NextResponse.json({ error: jobPostsError.message }, { status: 500 });
+        }
+
+        // Map snake_case -> camel_case expected by frontend.
+        const mapped = (jobPosts ?? []).map((p: any) => ({
+          id: p.id,
+          employerId: p.employer_id ?? p.employerId,
+          title: p.title,
+          position: p.position,
+          postType: p.post_type ?? p.postType,
+          createdAt: p.created_at ?? p.createdAt,
+          status: p.status,
+          qualifications: p.qualifications,
+          requirements: p.requirements ?? "",
+          description: p.description ?? "",
+          employmentType: p.employment_type,
+          schedule: p.schedule,
+          salary: p.salary,
+          urgency: p.urgency,
+          benefits: p.benefits ?? [],
+          employerRequirements: p.employer_requirements ?? [],
+          adminRequirements: p.admin_requirements ?? [],
+          rejectionNotes: p.rejection_notes ?? "",
+          publishedAt: p.published_at ?? null,
+          applicant_count: p.applicant_count ?? p.applicantCount,
+        }));
+
+        return NextResponse.json({ jobPosts: mapped });
+      }
+
+      const employerId = employerProfile.id;
+
+      const { data: jobPosts, error: jobPostsError } = await supabaseAdmin
+        .from("job_posts")
+        .select("*")
+        .eq("employer_id", employerId)
+        .order("created_at", { ascending: false });
+
+      if (jobPostsError) {
+        return NextResponse.json({ error: jobPostsError.message }, { status: 500 });
+      }
+
+      const mapped = (jobPosts ?? []).map((p: any) => ({
+        id: p.id,
+        employerId: p.employer_id ?? p.employerId,
+        title: p.title,
+        position: p.position,
+        postType: p.post_type ?? p.postType,
+        createdAt: p.created_at ?? p.createdAt,
+        status: p.status,
+        qualifications: p.qualifications,
+        requirements: p.requirements ?? "",
+        description: p.description ?? "",
+        employmentType: p.employment_type,
+        schedule: p.schedule,
+        salary: p.salary,
+        urgency: p.urgency,
+        benefits: p.benefits ?? [],
+        employerRequirements: p.employer_requirements ?? [],
+        adminRequirements: p.admin_requirements ?? [],
+        rejectionNotes: p.rejection_notes ?? "",
+        publishedAt: p.published_at ?? null,
+        applicant_count: p.applicant_count ?? p.applicantCount,
+      }));
+
+      return NextResponse.json({ jobPosts: mapped });
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message ?? "Failed to fetch job posts" }, { status: 500 });
+    }
+  }
+
+  // Fallback to JSON store
   const db = await readDatabase();
   const employerProfile =
     db.employerProfiles.find((p) => p.userId === portalUser.id) ||
@@ -40,13 +150,14 @@ export async function POST(request: Request) {
   let employerProfileId: string;
 
   if (supabaseAdmin) {
+    console.log("[job-posts] Supabase enabled for POST");
     try {
       // Try to find existing employer profile in Supabase
       const { data: existingProfile, error: profileError } = await supabaseAdmin
-        .from("employer_profiles")
-        .select("id")
-        .eq("user_id", portalUser.id)
-        .single();
+          .from("employer_profiles")
+          .select("id")
+          .eq("userId", portalUser.id)
+          .single();
 
       if (existingProfile && !profileError) {
         employerProfileId = existingProfile.id;
@@ -55,7 +166,7 @@ export async function POST(request: Request) {
         employerProfileId = makeId("employer");
         const newProfile = {
           id: employerProfileId,
-          user_id: portalUser.id,
+          userId: portalUser.id,
           company_name: `${portalUser.fullName}'s Business`,
           contact_person: portalUser.fullName,
           headline: "New employer account",
@@ -249,10 +360,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ post: insertedPost });
     } catch (error: any) {
       const message = error?.message ?? String(error);
-      console.warn("Supabase admin job-posts failed, falling back to JSON store:", message);
-      // Fall through to JSON store fallback
+      console.error("[job-posts] Supabase admin job-posts failed; NOT saving to JSON", {
+        message,
+        name: error?.name,
+      });
+
+      return NextResponse.json(
+        {
+          error: "Supabase job post create failed",
+          message,
+        },
+        { status: 500 }
+      );
     }
   }
+
 
   // Fallback to JSON store (either Supabase not configured or failed)
   console.log("Using JSON store fallback for job post creation");

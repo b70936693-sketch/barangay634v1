@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Briefcase, Building, Clock, LayoutDashboard, PlusCircle, Settings, Users } from "lucide-react";
-import { useGetDashboardSummary } from "@workspace/api-client-react";
+import { useGetDashboardSummary } from "./api-client-react";
 
 // Default dashboard redirect/page
 export default function EmployerPage() {
