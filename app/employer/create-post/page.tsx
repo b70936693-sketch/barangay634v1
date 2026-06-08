@@ -52,9 +52,9 @@ const formSchema = z.object({
 });
 
 const SHIFT_OPTIONS = [
-  { id: "morning", label: "Morning (6 AM - 2 PM)" },
-  { id: "afternoon", label: "Afternoon (2 PM - 10 PM)" },
-  { id: "evening", label: "Evening (10 PM - 6 AM)" },
+  { id: "morning", label: "Morning" },
+  { id: "afternoon", label: "Afternoon" },
+  { id: "evening", label: "Evening" },
   { id: "flexible", label: "Flexible/Part-time" },
   { id: "fulltime", label: "Full-time (Fixed)" },
 ];
