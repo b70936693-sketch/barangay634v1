@@ -244,32 +244,20 @@ export default function AdminDashboardPage() {
   const activeAlerts = summary?.securityAlerts ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl border border-[#d6e1eb] bg-[linear-gradient(135deg,#2f5e8f_0%,#214b74_55%,#1a3f5f_100%)] p-6 text-white shadow-[0_20px_50px_rgba(37,91,142,0.18)]">
-        <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-[#ffd45d]/10 blur-3xl" />
-        <div className="absolute -left-8 top-0 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/70">Platform overview</p>
-            <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Admin Dashboard</h2>
-            <p className="mt-2 max-w-xl text-sm text-white/80">
-              Monitor verifications, hiring activity, and safety alerts across Barangay 634 in real time.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <p className="text-xs font-medium text-white/70">Verified employers</p>
-              <p className="mt-1 text-xl font-bold">{summary?.verifiedEmployers ?? 0}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <p className="text-xs font-medium text-white/70">Total applications</p>
-              <p className="mt-1 text-xl font-bold">{summary?.totalApplications ?? 0}</p>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-[#e4ecf3] bg-[#f8fbff] px-4 py-2.5 text-sm text-[#506274]">
+        <span>
+          Verified employers:{" "}
+          <strong className="font-semibold text-[#203142]">{summary?.verifiedEmployers ?? 0}</strong>
+        </span>
+        <span className="hidden h-3 w-px bg-[#dbe5ef] sm:block" />
+        <span>
+          Total applications:{" "}
+          <strong className="font-semibold text-[#203142]">{summary?.totalApplications ?? 0}</strong>
+        </span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <PulseCard
           label="Pending verifications"
           value={summary?.pendingVerifications ?? 0}
