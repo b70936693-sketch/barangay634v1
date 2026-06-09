@@ -227,6 +227,29 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+const statAccents: Record<string, { glow: string; iconWrap: string; icon: string }> = {
+  "Pending Verifications": {
+    glow: "bg-amber-300",
+    iconWrap: "bg-amber-50 border-amber-100",
+    icon: "text-amber-600",
+  },
+  "Active Jobs": {
+    glow: "bg-blue-300",
+    iconWrap: "bg-blue-50 border-blue-100",
+    icon: "text-blue-600",
+  },
+  "Security Alerts": {
+    glow: "bg-red-300",
+    iconWrap: "bg-red-50 border-red-100",
+    icon: "text-red-600",
+  },
+  Applications: {
+    glow: "bg-emerald-300",
+    iconWrap: "bg-emerald-50 border-emerald-100",
+    icon: "text-emerald-600",
+  },
+};
+
 function AdminStat({
   title,
   value,
@@ -236,15 +259,24 @@ function AdminStat({
   value: number;
   icon: React.ComponentType<{ className?: string }>;
 }) {
+  const accent = statAccents[title] ?? {
+    glow: "bg-blue-300",
+    iconWrap: "bg-blue-50 border-blue-100",
+    icon: "text-blue-600",
+  };
+
   return (
-    <Card className="rounded-2xl border border-[#d7e1eb] bg-[#fbfdff] shadow-none">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#dce8f3] bg-[#eef5fb] text-[#2f6fa4]">
-          <Icon className="h-5 w-5" />
+    <Card className="relative overflow-hidden rounded-2xl border border-[#dbe5ef] bg-white shadow-sm transition hover:shadow-md">
+      <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${accent.glow} opacity-25 blur-2xl`} />
+      <CardContent className="relative flex items-center gap-4 p-4">
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm ${accent.iconWrap}`}
+        >
+          <Icon className={`h-5 w-5 ${accent.icon}`} />
         </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.04em] text-[#7c8ea1]">{title}</p>
-          <p className="mt-1 text-[1.7rem] font-bold leading-none text-[#203142]">{value}</p>
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7b8ca0]">{title}</p>
+          <p className="mt-1 text-[1.85rem] font-bold leading-none tracking-tight text-[#203142]">{value}</p>
         </div>
       </CardContent>
     </Card>
