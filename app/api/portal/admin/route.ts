@@ -71,7 +71,10 @@ export async function PATCH(request: Request) {
     if ((body.status === "closed" || body.status === "rejected") && hasNotes) {
       result = updateJobPostStatusWithNotes(db, jobId, body.status, body.rejectionNotes);
     } else {
-      result = updateJobPostStatus(db, jobId, body.status);
+      // Ensure we normalize status for the DB layer.
+      // Applicants only see posts where status === "active".
+      const nextStatus = body.status === "active" ? "active" : body.status;
+      result = updateJobPostStatus(db, jobId, nextStatus as any);
     }
   }
 

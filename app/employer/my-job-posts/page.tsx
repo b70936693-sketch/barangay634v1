@@ -168,7 +168,9 @@ interface JobPostCardProps {
 }
 
 function JobPostCard({ post, type, openModal }: JobPostCardProps) {
-  const status = statusConfig[post.status as keyof typeof statusConfig];
+  const status =
+    statusConfig[post.status as keyof typeof statusConfig] ??
+    { label: "Unknown", color: "secondary" };
 
   return (
     <Card className="overflow-hidden hover:shadow-[0_20px_40px_rgba(37,91,142,0.12)] transition-all hover:-translate-y-1">

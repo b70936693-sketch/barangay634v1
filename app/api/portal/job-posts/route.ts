@@ -284,7 +284,7 @@ export async function POST(request: Request) {
         title: data.title,
         position: data.position,
         post_type: data.postType,
-        status: "pending",
+        status: "active",
         qualifications: data.qualifications,
         requirements: Array.isArray(data.adminRequirements)
           ? data.adminRequirements.join(", ")
@@ -336,7 +336,7 @@ export async function POST(request: Request) {
           title: data.title,
           position: data.position,
           postType: data.postType,
-          status: "pending",
+          status: "active",
           qualifications: data.qualifications,
           requirements: Array.isArray(data.adminRequirements)
             ? data.adminRequirements.join(", ")

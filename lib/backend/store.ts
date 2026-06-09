@@ -1638,6 +1638,10 @@ export function updateJobPostStatus(db: PortalDatabase, jobPostId: string, statu
     item.publishedAt = null;
   }
 
+  // Applicants only see posts with status === "active".
+  // Ensure publishedAt is always consistent with status.
+  item.publishedAt = status === "active" ? new Date().toISOString() : null;
+
   // Clear any previous rejection notes when updating status (except when explicitly rejected)
   if (status === "rejected") {
     // keep existing notes if present (can be overwritten by *_WithNotes)
@@ -1645,6 +1649,7 @@ export function updateJobPostStatus(db: PortalDatabase, jobPostId: string, statu
   } else {
     item.rejectionNotes = "";
   }
+
 
   appendAuditLog(db, { actor: "Barangay Admin", action: `updated job post ${status}`, target: item.title });
   return item;
@@ -1674,11 +1679,10 @@ export function updateJobPostStatusWithNotes(
     item.rejectionNotes = "";
   }
 
-  if (status === "active") {
-    item.publishedAt = new Date().toISOString();
-  } else if (status === "closed" || status === "rejected") {
-    item.publishedAt = null;
-  }
+  // Applicants only see posts with status === "active".
+  // Keep publishedAt consistent with status.
+  item.publishedAt = status === "active" ? new Date().toISOString() : null;
+
 
   appendAuditLog(db, {
     actor: "Barangay Admin",
