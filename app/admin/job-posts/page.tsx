@@ -2,7 +2,7 @@
 
 import { AdminPanel, ActionButton, EmptyState, StatusBadge } from "../_components";
 import { useAdminJobPostAction, useAdminPortal } from "../api-client-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -24,11 +24,23 @@ import {
   Users,
 } from "lucide-react";
 
+const SHIFT_LABELS: Record<string, string> = {
+  morning: "Morning",
+  afternoon: "Afternoon",
+  evening: "Evening",
+  flexible: "Flexible",
+  fulltime: "Full-time",
+};
+
 type JobPostRecord = {
   id: string;
   title: string;
   position: string;
   companyName?: string;
+  contactPerson?: string;
+  businessType?: string;
+  employerEmail?: string;
+  employerPhone?: string;
   employerLogoUrl?: string | null;
   location?: string;
   status: string;
@@ -36,6 +48,8 @@ type JobPostRecord = {
   employerVerified?: boolean;
   createdAt?: string;
   publishedAt?: string | null;
+  postedAt?: string | null;
+  submittedAt?: string | null;
   postType?: string;
   employmentType?: string;
   schedule?: string;
@@ -90,7 +104,21 @@ function formatDate(value?: string | null) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
-  return new Date(value).toLocaleString();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+}
+
+function formatShiftLabel(shift: string) {
+  return SHIFT_LABELS[shift] ?? shift.replace(/_/g, " ");
+}
+
+function getPostDateMeta(post: JobPostRecord) {
+  if (post.publishedAt) {
+    return { label: "Published", value: post.publishedAt };
+  }
+  const submitted = post.submittedAt ?? post.createdAt ?? post.postedAt;
+  return { label: "Submitted", value: submitted ?? null };
 }
 
 function renderList(value: unknown) {
@@ -138,6 +166,27 @@ function OverviewField({
   );
 }
 
+function DetailSection({
+  title,
+  children,
+  empty = false,
+}: {
+  title: string;
+  children: ReactNode;
+  empty?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
+      <div className="text-sm font-semibold text-[#203142]">{title}</div>
+      {empty ? (
+        <p className="mt-2 text-sm text-[#9aa9ba]">Not provided</p>
+      ) : (
+        <div className="mt-2">{children}</div>
+      )}
+    </div>
+  );
+}
+
 function JobOverviewDialog({
   post,
   open,
@@ -162,6 +211,11 @@ function JobOverviewDialog({
   const isPendingReview = needsAdminReview(post);
   const isLive = isPublishedLive(post);
   const isRemoved = post.status === "rejected" || post.status === "closed";
+  const postDate = getPostDateMeta(post);
+  const shiftLabels = (post.shifts ?? []).map(formatShiftLabel);
+  const accessibilityLabels = (post.accessibilityFeatures ?? []).map((item) =>
+    item.replace(/_/g, " ")
+  );
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -244,86 +298,97 @@ function JobOverviewDialog({
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <OverviewField label="Created" value={formatDateTime(post.createdAt)} />
+            <OverviewField label="Submitted" value={formatDateTime(post.submittedAt ?? post.createdAt)} />
             <OverviewField label="Published" value={formatDateTime(post.publishedAt)} />
             <OverviewField label="Posting start" value={formatDate(post.postingStartDate)} />
             <OverviewField label="Posting end" value={formatDate(post.postingEndDate)} />
           </div>
 
-          {(post.pwdFriendly || post.seniorFriendly || (post.accessibilityFeatures?.length ?? 0) > 0) && (
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <div className="text-sm font-semibold text-emerald-900">R.A. compliance & accessibility</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {post.pwdFriendly ? (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                    PWD friendly
-                  </span>
-                ) : null}
-                {post.seniorFriendly ? (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                    Senior friendly
-                  </span>
-                ) : null}
-              </div>
-              {renderList(post.accessibilityFeatures)}
-            </div>
-          )}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <OverviewField label="Company" value={post.companyName} />
+            <OverviewField label="Contact person" value={post.contactPerson} />
+            <OverviewField label="Business type" value={post.businessType} />
+            <OverviewField label="Employer email" value={post.employerEmail} />
+            <OverviewField label="Employer phone" value={post.employerPhone} />
+            <OverviewField label="Work location" value={post.location} />
+          </div>
 
-          {post.shifts && post.shifts.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-[#e5edf5] bg-white p-4">
-              <div className="text-sm font-semibold text-[#203142]">Available shifts</div>
-              {renderList(post.shifts)}
-            </div>
-          ) : null}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <OverviewField label="Post type" value={post.postType?.replace(/_/g, " ")} />
+            <OverviewField label="Employment type" value={post.employmentType} />
+            <OverviewField label="Schedule" value={post.schedule} />
+            <OverviewField label="Salary" value={post.salary} />
+            <OverviewField label="Urgency" value={post.urgency} />
+            <OverviewField label={postDate.label} value={formatDateTime(postDate.value)} />
+          </div>
 
-          {post.description ? (
-            <div className="mt-5 rounded-2xl border border-[#e5edf5] bg-white p-4">
-              <div className="text-sm font-semibold text-[#203142]">Job description</div>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#506274]">{post.description}</p>
+          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="text-sm font-semibold text-emerald-900">R.A. compliance & accessibility</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  post.pwdFriendly ? "bg-emerald-100 text-emerald-800" : "bg-white text-[#7b8ca0]"
+                }`}
+              >
+                PWD friendly: {post.pwdFriendly ? "Yes" : "No"}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  post.seniorFriendly ? "bg-emerald-100 text-emerald-800" : "bg-white text-[#7b8ca0]"
+                }`}
+              >
+                Senior friendly: {post.seniorFriendly ? "Yes" : "No"}
+              </span>
             </div>
-          ) : null}
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {post.qualifications ? (
-              <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
-                <div className="text-sm font-semibold text-[#203142]">Qualifications</div>
-                {renderList(post.qualifications) ?? (
-                  <p className="mt-2 text-sm text-[#506274]">{post.qualifications}</p>
-                )}
-              </div>
-            ) : null}
-            {post.requirements ? (
-              <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
-                <div className="text-sm font-semibold text-[#203142]">Requirements</div>
-                {renderList(post.requirements) ?? (
-                  <p className="mt-2 text-sm text-[#506274]">{post.requirements}</p>
-                )}
-              </div>
-            ) : null}
+            {accessibilityLabels.length > 0 ? (
+              <div className="mt-3">{renderList(accessibilityLabels)}</div>
+            ) : (
+              <p className="mt-3 text-sm text-[#7b8ca0]">No accessibility features listed</p>
+            )}
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {post.benefits && post.benefits.length > 0 ? (
-              <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
-                <div className="text-sm font-semibold text-[#203142]">Benefits</div>
-                {renderList(post.benefits)}
-              </div>
-            ) : null}
-            {post.employerRequirements && post.employerRequirements.length > 0 ? (
-              <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
-                <div className="text-sm font-semibold text-[#203142]">Employer requirements</div>
-                {renderList(post.employerRequirements)}
-              </div>
-            ) : null}
+            <DetailSection title="Available shifts" empty={shiftLabels.length === 0}>
+              {renderList(shiftLabels)}
+            </DetailSection>
+            <DetailSection title="Benefits" empty={!(post.benefits?.length ?? 0)}>
+              {renderList(post.benefits)}
+            </DetailSection>
           </div>
 
-          {post.adminRequirements && post.adminRequirements.length > 0 ? (
-            <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-              <div className="text-sm font-semibold text-blue-900">Admin requirements checklist</div>
-              <p className="mt-1 text-xs text-blue-700">Verify these before approving the listing.</p>
+          <div className="mt-5">
+            <DetailSection title="Job description" empty={!post.description?.trim()}>
+              <p className="whitespace-pre-wrap text-sm leading-7 text-[#506274]">{post.description}</p>
+            </DetailSection>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <DetailSection title="Qualifications" empty={!post.qualifications?.trim()}>
+              {renderList(post.qualifications) ?? (
+                <p className="text-sm text-[#506274]">{post.qualifications}</p>
+              )}
+            </DetailSection>
+            <DetailSection title="General requirements" empty={!post.requirements?.trim()}>
+              {renderList(post.requirements) ?? (
+                <p className="text-sm text-[#506274]">{post.requirements}</p>
+              )}
+            </DetailSection>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <DetailSection
+              title="Employer requirements (documents to submit)"
+              empty={!(post.employerRequirements?.length ?? 0)}
+            >
+              {renderList(post.employerRequirements)}
+            </DetailSection>
+            <DetailSection
+              title="Admin verification requirements"
+              empty={!(post.adminRequirements?.length ?? 0)}
+            >
               {renderList(post.adminRequirements)}
-            </div>
-          ) : null}
+            </DetailSection>
+          </div>
         </div>
 
         <DialogFooter className="shrink-0 border-t border-[#e5edf5] bg-[#fbfdff] px-6 py-4 sm:flex-row sm:justify-end">
@@ -390,6 +455,7 @@ function JobPostRow({
 }) {
   const awaitingReview = needsAdminReview(post);
   const isLive = isPublishedLive(post);
+  const postDate = getPostDateMeta(post);
 
   return (
     <div
@@ -414,7 +480,7 @@ function JobPostRow({
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#7b8ca0]">
           <span className="inline-flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
-            {formatDate(post.createdAt)}
+            {postDate.label} {formatDateTime(postDate.value)}
           </span>
           {post.salary ? <span>{post.salary}</span> : null}
           {awaitingReview ? (
@@ -572,6 +638,15 @@ export default function JobPostsPage() {
   }, [queryClient]);
 
   const jobPosts = (data?.jobPosts ?? []) as JobPostRecord[];
+
+  useEffect(() => {
+    if (!overviewPost) return;
+    const latest = jobPosts.find((post) => post.id === overviewPost.id);
+    if (latest) {
+      setOverviewPost(latest);
+    }
+  }, [jobPosts, overviewPost?.id]);
+
   const pendingPosts = jobPosts.filter((post) => needsAdminReview(post));
   const livePosts = jobPosts.filter((post) => isPublishedLive(post));
   const removedPosts = jobPosts.filter((post) => post.status === "rejected" || post.status === "closed");

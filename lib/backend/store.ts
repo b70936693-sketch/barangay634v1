@@ -116,7 +116,7 @@ function mapJobPostRow(row: unknown): JobPost {
     title: (r.title ?? "") as string,
     position: (r.position ?? "") as string,
     postType: (r.post_type ?? r.postType) as JobPost["postType"],
-    createdAt: normalizeTimestamp((r.created_at ?? r.createdAt) as unknown),
+    createdAt: normalizeOptionalTimestamp(r.created_at ?? r.createdAt) ?? "",
     status: r.status as JobPost["status"],
     qualifications: (r.qualifications ?? "") as string,
     requirements: (r.requirements ?? "") as string,
@@ -535,6 +535,12 @@ function toSupabaseJobPost(post: JobPost) {
     admin_requirements: post.adminRequirements,
     rejection_notes: post.rejectionNotes ?? null,
     published_at: post.publishedAt ?? null,
+    posting_start_date: post.postingStartDate ?? null,
+    posting_end_date: post.postingEndDate ?? null,
+    shifts: post.shifts ?? [],
+    pwd_friendly: post.pwdFriendly ?? false,
+    senior_friendly: post.seniorFriendly ?? false,
+    accessibility_features: post.accessibilityFeatures ?? [],
   };
 }
 
@@ -1279,6 +1285,9 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
 
   const jobPosts = jobPostsBase.map((post) => {
       const postEmployer = db.employerProfiles.find((profile) => profile.id === post.employerId) ?? employer;
+      const employerUser = postEmployer
+        ? db.users.find((user) => user.id === postEmployer.userId)
+        : undefined;
       const applicantCount = db.applications.filter((application) => application.jobPostId === post.id && application.status !== "rejected").length;
       return {
         ...post,
@@ -1286,9 +1295,14 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
         viewCount: applicantCount * 7 + 18,
         companyName: postEmployer?.companyName ?? "Barangay Employer",
         contactPerson: postEmployer?.contactPerson ?? "Employer Contact",
+        businessType: postEmployer?.businessType ?? "",
+        employerEmail: employerUser?.email ?? "",
+        employerPhone: employerUser?.phone ?? "",
         location: postEmployer?.location ?? "Barangay 634",
         employerVerified: postEmployer?.verified ?? false,
         employerLogoUrl: getEmployerLogoUrl(postEmployer?.headline),
+        postedAt: post.publishedAt ?? post.createdAt,
+        submittedAt: post.createdAt,
       };
     })
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));

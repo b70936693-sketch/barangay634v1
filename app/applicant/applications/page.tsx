@@ -257,7 +257,7 @@ export default function ApplicantApplicationsPage() {
       </Dialog>
 
       <Dialog open={!!viewSubmissionApp} onOpenChange={() => setViewSubmissionApp(null)}>
-        <DialogContent className="max-w-2xl gap-0 overflow-hidden border-0 p-0 bg-white sm:max-w-2xl">
+        <DialogContent hideClose className="max-w-2xl gap-0 overflow-hidden border-0 p-0 bg-white sm:max-w-2xl">
           {viewSubmissionApp && (
             <>
               <div className="relative overflow-hidden bg-gradient-to-br from-[#2f5e8f] via-[#255b89] to-[#1a3d5c] px-6 py-6 text-white">

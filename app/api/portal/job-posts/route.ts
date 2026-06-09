@@ -6,6 +6,39 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 
 import type { JobPost } from "@/lib/backend/types";
 
+function toIsoTimestamp(value: unknown) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function buildJobPostFields(data: Record<string, unknown>) {
+  const employerRequirements = Array.isArray(data.employerRequirements)
+    ? data.employerRequirements
+    : String(data.employerRequirements ?? "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  const adminRequirements = Array.isArray(data.adminRequirements)
+    ? data.adminRequirements
+    : String(data.adminRequirements ?? "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  return {
+    employerRequirements,
+    adminRequirements,
+    postingStartDate: toIsoTimestamp(data.postingStartDate),
+    postingEndDate: toIsoTimestamp(data.postingEndDate),
+    shifts: Array.isArray(data.shifts) ? data.shifts : [],
+    pwdFriendly: Boolean(data.pwdFriendly),
+    seniorFriendly: Boolean(data.seniorFriendly),
+    accessibilityFeatures: Array.isArray(data.accessibilityFeatures) ? data.accessibilityFeatures : [],
+  };
+}
+
 export async function GET(request: Request) {
   const { portalUser } = await getCurrentPortalUser(request);
   if (!portalUser || portalUser.role !== "employer") {
@@ -88,23 +121,16 @@ export async function POST(request: Request) {
 
       const now = new Date().toISOString();
 
-      const employerRequirements = Array.isArray(data.employerRequirements)
-        ? data.employerRequirements
-        : data.employerRequirements
-          ? data.employerRequirements
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-          : [];
-
-      const adminRequirements = Array.isArray(data.adminRequirements)
-        ? data.adminRequirements
-        : data.adminRequirements
-          ? data.adminRequirements
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean)
-          : [];
+      const {
+        employerRequirements,
+        adminRequirements,
+        postingStartDate,
+        postingEndDate,
+        shifts,
+        pwdFriendly,
+        seniorFriendly,
+        accessibilityFeatures,
+      } = buildJobPostFields(data);
 
       const normalizedTitle = String(data.title ?? "").trim().toLowerCase();
       const normalizedPosition = String(data.position ?? "").trim().toLowerCase();
@@ -200,6 +226,12 @@ export async function POST(request: Request) {
         benefits: ["Community-based employment", "Local support"],
         employer_requirements: employerRequirements,
         admin_requirements: adminRequirements,
+        posting_start_date: postingStartDate,
+        posting_end_date: postingEndDate,
+        shifts,
+        pwd_friendly: pwdFriendly,
+        senior_friendly: seniorFriendly,
+        accessibility_features: accessibilityFeatures,
         created_at: now,
       };
 
@@ -264,8 +296,14 @@ export async function POST(request: Request) {
           salary: "Competitive",
           urgency: "normal",
           benefits: ["Community-based employment", "Local support"],
-          employerRequirements: employerRequirements,
-          adminRequirements: adminRequirements,
+          employerRequirements,
+          adminRequirements,
+          postingStartDate,
+          postingEndDate,
+          shifts,
+          pwdFriendly,
+          seniorFriendly,
+          accessibilityFeatures,
         };
 
         db.jobPosts.unshift(post);
@@ -339,23 +377,38 @@ export async function POST(request: Request) {
     db.employerProfiles.unshift(employerProfile);
   }
 
+  const {
+    employerRequirements,
+    adminRequirements,
+    postingStartDate,
+    postingEndDate,
+    shifts,
+    pwdFriendly,
+    seniorFriendly,
+    accessibilityFeatures,
+  } = buildJobPostFields(data);
+
   const postData: Omit<JobPost, "id" | "createdAt" | "employerId"> = {
     title: data.title,
     position: data.position,
     postType: data.postType,
     status: "pending",
     qualifications: data.qualifications,
-    requirements: Array.isArray(data.adminRequirements)
-      ? data.adminRequirements.join(", ")
-      : data.adminRequirements || "",
+    requirements: adminRequirements.join(", "),
     description: data.description ?? "",
     employmentType: "Full-time",
     schedule: "Flexible",
     salary: "Competitive",
     urgency: "normal",
     benefits: ["Community-based employment", "Local support"],
-    employerRequirements: Array.isArray(data.employerRequirements) ? data.employerRequirements : [],
-    adminRequirements: Array.isArray(data.adminRequirements) ? data.adminRequirements : [],
+    employerRequirements,
+    adminRequirements,
+    postingStartDate,
+    postingEndDate,
+    shifts,
+    pwdFriendly,
+    seniorFriendly,
+    accessibilityFeatures,
   };
 
   const { createJobPost } = await import("@/lib/backend/store");
