@@ -3,25 +3,33 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Heart, LogOut, FileCheck, UserCircle2, Sparkles, BadgeCheck, CalendarClock } from "lucide-react";
+import { Heart, LogOut, FileCheck, UserCircle2, Sparkles, BadgeCheck, CalendarClock, Bell } from "lucide-react";
 import { getSessionSafe } from "@/lib/supabase";
 import { useSupabaseSession } from "@/lib/hooks/useSupabaseSession";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useGetApplicantProfile, useGetCurrentPortalUser, useListApplicantApplications } from "@workspace/api-client-react";
+import {
+  useGetApplicantProfile,
+  useGetCurrentPortalUser,
+  useListApplicantApplications,
+  useListApplicantNotifications,
+} from "@workspace/api-client-react";
+import { getApplicantHeadlineText, parseApplicantProfileMeta } from "@/lib/applicant-profile-meta";
 
 const navItems = [
   { href: "/applicant", label: "Discover Jobs", icon: Sparkles },
   { href: "/applicant/applications", label: "My Applications", icon: FileCheck },
+  { href: "/applicant/notifications", label: "Notifications", icon: Bell },
   { href: "/applicant/profile", label: "My Profile", icon: UserCircle2 },
 ];
 
 const titles: Record<string, string> = {
   "/applicant": "Swipe Opportunities",
   "/applicant/applications": "My Applications",
+  "/applicant/notifications": "Notifications",
   "/applicant/profile": "Applicant Profile",
 };
 
@@ -52,10 +60,17 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
   const { data: profile } = useGetApplicantProfile();
   const { data: currentUser } = useGetCurrentPortalUser();
   const { data: applications = [] } = useListApplicantApplications();
+  const { data: notificationData } = useListApplicantNotifications();
 
   const displayName = currentUser?.fullName ?? profile?.fullName ?? "Applicant";
+  const profilePhotoUrl = useMemo(
+    () => parseApplicantProfileMeta(profile?.headline).photoUrl ?? null,
+    [profile?.headline],
+  );
+  const profileHeadline = getApplicantHeadlineText(profile?.headline);
   const pageTitle = titles[pathname] ?? "Applicant Portal";
   const interviewCount = applications.filter((item: any) => item.status === "for_interview").length;
+  const unreadNotifications = notificationData?.unreadCount ?? 0;
 
   useEffect(() => {
     const checkRole = async () => {
@@ -106,8 +121,19 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden rounded-full border border-[#f0bf49] bg-[#ffd45d] px-4 py-2 text-xs font-semibold text-[#3f4e5c] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] sm:flex">
-              Swipe. Match. Apply.
+            <div className="hidden items-center gap-2.5 sm:flex">
+              <div className="h-9 w-9 overflow-hidden rounded-full border-2 border-white/25 bg-white/10 shadow-sm">
+                {profilePhotoUrl ? (
+                  <img src={profilePhotoUrl} alt={`${displayName} photo`} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#255b89] text-sm font-bold text-white">
+                    {displayName.charAt(0) || "A"}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-full border border-[#f0bf49] bg-[#ffd45d] px-4 py-2 text-xs font-semibold text-[#3f4e5c] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+                {displayName}
+              </div>
             </div>
             <Button
               variant="destructive"
@@ -129,11 +155,15 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
         <aside className="hidden rounded-[28px] border border-[#d6e1eb] bg-white/95 p-5 shadow-[0_18px_40px_rgba(37,91,142,0.08)] lg:flex lg:flex-col">
           <div className="flex flex-col items-center border-b border-[#e4ecf3] pb-5 text-center">
             <div className="mb-4 h-20 w-20 overflow-hidden rounded-[1.25rem] border-[6px] border-[#edf4fa] bg-[#2f6fa4]">
-              <img src="/logo.jpg" alt="Barangay 634 logo" className="h-full w-full object-cover" />
+              {profilePhotoUrl ? (
+                <img src={profilePhotoUrl} alt={`${displayName} photo`} className="h-full w-full object-cover" />
+              ) : (
+                <img src="/logo.jpg" alt="Barangay 634 logo" className="h-full w-full object-cover" />
+              )}
             </div>
             <div className="text-base font-semibold text-[#27384b]">{displayName}</div>
             <div className="mt-1 text-xs font-medium text-[#7c8ea1]">
-              {profile?.headline ?? (displayName !== "Applicant" ? "Welcome back" : "Community job seeker")}
+              {profileHeadline || (displayName !== "Applicant" ? "Welcome back" : "Community job seeker")}
             </div>
             <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-[#bfe9cb] bg-[#ecfbf0] px-3 py-1 text-[11px] font-semibold text-[#53a467]">
               <BadgeCheck className="h-3.5 w-3.5" />
@@ -144,6 +174,7 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
           <nav className="mt-5 space-y-1.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const showBadge = item.href === "/applicant/notifications" && unreadNotifications > 0;
 
               return (
                 <Link key={item.href} href={item.href} className="block">
@@ -156,6 +187,11 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
                   >
                     <item.icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#5f7488]"}`} />
                     <span className="flex-1">{item.label}</span>
+                    {showBadge ? (
+                      <span className="rounded-full bg-[#ffd45d] px-2 py-0.5 text-[10px] font-bold text-[#3f4e5c]">
+                        {unreadNotifications}
+                      </span>
+                    ) : null}
                   </div>
                 </Link>
               );
@@ -173,8 +209,9 @@ function ApplicantShell({ children }: { children: React.ReactNode }) {
               <div className="text-sm font-medium text-[#8a99ab]">{format(new Date(), "EEEE, MMMM d, yyyy")}</div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <ApplicantStat title="Applications Sent" value={applications.length} icon={Heart} />
+              <ApplicantStat title="Unread Alerts" value={unreadNotifications} icon={Bell} />
               <ApplicantStat title="For Interview" value={interviewCount} icon={CalendarClock} />
               <ApplicantStat title="Documents Ready" value={profile?.documentsReady?.length ?? 0} icon={FileCheck} />
               <ApplicantStat title="Barangay Ready" value={1} icon={BadgeCheck} />

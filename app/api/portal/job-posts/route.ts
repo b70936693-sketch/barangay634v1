@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentPortalUser } from "@/lib/backend/auth";
-import { getOrCreateEmployerProfile, makeId, readDatabase, writeDatabase } from "@/lib/backend/store";
+import { appendAuditLog, getOrCreateEmployerProfile, makeId, readDatabase, withDerivedData, writeDatabase } from "@/lib/backend/store";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 import type { JobPost } from "@/lib/backend/types";
@@ -12,123 +12,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Prefer Supabase when configured to avoid JSON-store sync issues.
-  if (supabaseAdmin) {
-    try {
-      // Find employer profile in Supabase by user_id.
-        const { data: employerProfile, error: employerProfileError } = await supabaseAdmin
-        .from("employer_profiles")
-        .select("id")
-        .eq("user_id", portalUser.id)
-        .maybeSingle();
+  try {
+    const db = await readDatabase();
+    await getOrCreateEmployerProfile(db, portalUser.id, supabaseAdmin ?? null);
+    const latestDb = await readDatabase();
+    const derived = withDerivedData(latestDb, portalUser);
 
-      if (employerProfileError || !employerProfile?.id) {
-        // If missing, create via JSON store helper (which also syncs to Supabase).
-        const db = await readDatabase();
-        const created = await getOrCreateEmployerProfile(db, portalUser.id, supabaseAdmin);
-        if (!created?.id) {
-          return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
-        }
+    const jobPosts = derived.jobPosts.map((post) => ({
+      ...post,
+      applicant_count: post.applicantCount,
+      created_at: post.createdAt,
+      postedAt: post.publishedAt ?? post.createdAt,
+    }));
 
-        const { data: rechecked } = await supabaseAdmin
-          .from("employer_profiles")
-          .select("id")
-          .eq("userId", portalUser.id)
-          .maybeSingle();
-
-        if (!rechecked?.id) {
-          return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
-        }
-
-        // Continue with created id
-        const employerId = created.id;
-
-        const { data: jobPosts, error: jobPostsError } = await supabaseAdmin
-          .from("job_posts")
-          .select("*")
-          .eq("employer_id", employerId)
-          .order("created_at", { ascending: false });
-
-        if (jobPostsError) {
-          return NextResponse.json({ error: jobPostsError.message }, { status: 500 });
-        }
-
-        // Map snake_case -> camel_case expected by frontend.
-        const mapped = (jobPosts ?? []).map((p: any) => ({
-          id: p.id,
-          employerId: p.employer_id ?? p.employerId,
-          title: p.title,
-          position: p.position,
-          postType: p.post_type ?? p.postType,
-          createdAt: p.created_at ?? p.createdAt,
-          status: p.status,
-          qualifications: p.qualifications,
-          requirements: p.requirements ?? "",
-          description: p.description ?? "",
-          employmentType: p.employment_type,
-          schedule: p.schedule,
-          salary: p.salary,
-          urgency: p.urgency,
-          benefits: p.benefits ?? [],
-          employerRequirements: p.employer_requirements ?? [],
-          adminRequirements: p.admin_requirements ?? [],
-          rejectionNotes: p.rejection_notes ?? "",
-          publishedAt: p.published_at ?? null,
-          applicant_count: p.applicant_count ?? p.applicantCount,
-        }));
-
-        return NextResponse.json({ jobPosts: mapped });
-      }
-
-      const employerId = employerProfile.id;
-
-      const { data: jobPosts, error: jobPostsError } = await supabaseAdmin
-        .from("job_posts")
-        .select("*")
-        .eq("employer_id", employerId)
-        .order("created_at", { ascending: false });
-
-      if (jobPostsError) {
-        return NextResponse.json({ error: jobPostsError.message }, { status: 500 });
-      }
-
-      const mapped = (jobPosts ?? []).map((p: any) => ({
-        id: p.id,
-        employerId: p.employer_id ?? p.employerId,
-        title: p.title,
-        position: p.position,
-        postType: p.post_type ?? p.postType,
-        createdAt: p.created_at ?? p.createdAt,
-        status: p.status,
-        qualifications: p.qualifications,
-        requirements: p.requirements ?? "",
-        description: p.description ?? "",
-        employmentType: p.employment_type,
-        schedule: p.schedule,
-        salary: p.salary,
-        urgency: p.urgency,
-        benefits: p.benefits ?? [],
-        employerRequirements: p.employer_requirements ?? [],
-        adminRequirements: p.admin_requirements ?? [],
-        rejectionNotes: p.rejection_notes ?? "",
-        publishedAt: p.published_at ?? null,
-        applicant_count: p.applicant_count ?? p.applicantCount,
-      }));
-
-      return NextResponse.json({ jobPosts: mapped });
-    } catch (e: any) {
-      return NextResponse.json({ error: e?.message ?? "Failed to fetch job posts" }, { status: 500 });
-    }
+    return NextResponse.json({ jobPosts });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch job posts";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  // Fallback to JSON store
-  const db = await readDatabase();
-  const employerProfile =
-    db.employerProfiles.find((p) => p.userId === portalUser.id) ||
-    (await getOrCreateEmployerProfile(db, portalUser.id, null));
-  const jobPosts = db.jobPosts.filter((post) => post.employerId === employerProfile.id);
-  return NextResponse.json({ jobPosts });
 }
+
 
 export async function POST(request: Request) {
   console.log("=== POST /api/portal/job-posts HIT ===");
@@ -236,12 +139,12 @@ export async function POST(request: Request) {
         requirementsKey,
       ].join("::");
 
-      // Prevent duplicates: if an identical ACTIVE job post already exists for this employer, return it.
+      // Prevent duplicates: if an identical pending or active job post already exists for this employer, return it.
       const { data: existingActivePosts, error: existingQueryError } = await supabaseAdmin
         .from("job_posts")
         .select("*")
         .eq("employer_id", employerProfileId)
-        .eq("status", "active");
+        .in("status", ["active", "pending"]);
 
       if (existingQueryError) {
         console.error("Failed to query existing job posts for dedupe:", existingQueryError);
@@ -284,7 +187,7 @@ export async function POST(request: Request) {
         title: data.title,
         position: data.position,
         post_type: data.postType,
-        status: "active",
+        status: "pending",
         qualifications: data.qualifications,
         requirements: Array.isArray(data.adminRequirements)
           ? data.adminRequirements.join(", ")
@@ -308,6 +211,20 @@ export async function POST(request: Request) {
 
       if (insertError) {
         throw insertError;
+      }
+
+      // Queue admin review so the listing stays hidden from applicants until approved.
+      const verificationId = makeId("verification");
+      const { error: verificationError } = await supabaseAdmin.from("verifications").insert({
+        id: verificationId,
+        type: "Employer Verification",
+        subject_name: `Job Post: ${data.title}`,
+        status: "pending",
+        submitted_at: now,
+      });
+
+      if (verificationError) {
+        console.warn("Failed to create job post verification record:", verificationError.message);
       }
 
       // Keep local JSON store in sync for local dev compatibility
@@ -336,7 +253,7 @@ export async function POST(request: Request) {
           title: data.title,
           position: data.position,
           postType: data.postType,
-          status: "active",
+          status: "pending",
           qualifications: data.qualifications,
           requirements: Array.isArray(data.adminRequirements)
             ? data.adminRequirements.join(", ")
@@ -352,6 +269,18 @@ export async function POST(request: Request) {
         };
 
         db.jobPosts.unshift(post);
+        db.verifications.unshift({
+          id: verificationId,
+          type: "Employer Verification",
+          subjectName: `Job Post: ${post.title}`,
+          status: "pending",
+          submittedAt: now,
+        });
+        appendAuditLog(db, {
+          actor: localEmployerProfile.contactPerson ?? "Employer",
+          action: "submitted job post for review",
+          target: post.title,
+        });
         await writeDatabase(db, true);
       } catch (syncError: any) {
         console.warn("JSON store sync warning (non-critical):", syncError?.message);

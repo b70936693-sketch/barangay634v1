@@ -32,6 +32,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { InterviewGuidancePanel, InterviewSummaryCard } from "@/lib/interview-guidance";
+import { buildSmsLink } from "@/lib/phone-links";
+import { ApplicantAvatar } from "@/components/applicant-avatar";
 
 const rescheduleSchema = z.object({
   interviewDate: z.string().min(1, { message: "Date is required" }),
@@ -55,6 +58,7 @@ interface InterviewRecord {
   interviewDate: string;
   interviewTime: string;
   location?: string;
+  photoUrl?: string | null;
 }
 
 export default function ForInterview() {
@@ -179,9 +183,12 @@ export default function ForInterview() {
               <Card key={interview.id} className={`flex flex-col ${isToday ? 'border-cyan-500 shadow-sm' : ''}`}>
                 <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
                   <div className="flex justify-between items-start gap-4">
-                    <div>
+                    <div className="flex items-start gap-3">
+                      <ApplicantAvatar name={interview.applicantName} photoUrl={interview.photoUrl} size="md" />
+                      <div>
                       <CardTitle className="text-lg mb-1">{interview.applicantName}</CardTitle>
                       <CardDescription className="font-medium text-foreground">{interview.position}</CardDescription>
+                      </div>
                     </div>
                     {isToday && (
                       <Badge className="bg-cyan-500/20 text-cyan-700 border-cyan-500/30 shrink-0">Today</Badge>
@@ -218,11 +225,22 @@ export default function ForInterview() {
                   </div>
                 </CardContent>
                 <CardFooter className="pt-3 pb-4 border-t border-border flex flex-wrap justify-between gap-2">
-                  <Button asChild variant="outline" className="flex-1 gap-2 min-w-[90px]">
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="flex-1 gap-2 min-w-[90px]"
+                    disabled={!buildSmsLink(interview.contact)}
+                  >
                     <a
-                      href={`sms:${interview.contact}?body=${encodeURIComponent(
-                        `Hello ${interview.applicantName}, this is regarding your interview for ${interview.position}.`,
-                      )}`}
+                      href={
+                        buildSmsLink(
+                          interview.contact,
+                          `Hello ${interview.applicantName}, this is regarding your interview for ${interview.position}.`,
+                        ) || "#"
+                      }
+                      onClick={(event) => {
+                        if (!buildSmsLink(interview.contact)) event.preventDefault();
+                      }}
                     >
                       <Mail className="h-4 w-4" /> Message
                     </a>
@@ -260,15 +278,16 @@ export default function ForInterview() {
 
       {/* Schedule Dialog */}
       <Dialog open={scheduleModalOpen} onOpenChange={setScheduleModalOpen}>
-        <DialogContent className="w-full sm:max-w-[425px] max-h-[calc(100vh-4rem)] overflow-y-auto bg-white">
+        <DialogContent className="w-full sm:max-w-3xl max-h-[calc(100vh-4rem)] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>Schedule Interview</DialogTitle>
+            <DialogTitle>Interview details</DialogTitle>
             <DialogDescription>
-              View or update the interview schedule for this candidate.
+              View or update the interview schedule and review what the applicant should prepare.
             </DialogDescription>
           </DialogHeader>
           <Form {...scheduleForm}>
-            <form onSubmit={scheduleForm.handleSubmit(onScheduleSubmit)} className="space-y-4 py-4">
+            <form onSubmit={scheduleForm.handleSubmit(onScheduleSubmit)} className="grid gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="space-y-4">
               <FormField
                 control={scheduleForm.control}
                 name="interviewDate"
@@ -308,7 +327,16 @@ export default function ForInterview() {
                   </FormItem>
                 )}
               />
-              <DialogFooter className="pt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              {scheduleForm.watch("interviewDate") && scheduleForm.watch("interviewTime") ? (
+                <InterviewSummaryCard
+                  interviewDate={scheduleForm.watch("interviewDate")}
+                  interviewTime={scheduleForm.watch("interviewTime")}
+                  location={scheduleForm.watch("location")}
+                />
+              ) : null}
+              </div>
+              <InterviewGuidancePanel variant="employer" />
+              <DialogFooter className="col-span-full pt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <Button type="button" variant="outline" onClick={() => setScheduleModalOpen(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>

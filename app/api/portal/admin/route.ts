@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePortalRole } from "@/lib/backend/auth";
-import { readDatabase, sendVerificationInvite, updateAlert, updateEmployerStatus, updateJobPostStatus, updateJobPostStatusWithNotes, updateReport, updateService, updateVerification, withDerivedData, writeDatabase } from "@/lib/backend/store";
+import { readDatabase, sendVerificationInvite, updateAlert, updateApplicantStatus, updateEmployerStatus, updateJobPostStatus, updateJobPostStatusWithNotes, updateReport, updateService, updateVerification, withDerivedData, writeDatabase } from "@/lib/backend/store";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 
@@ -51,6 +51,13 @@ export async function PATCH(request: Request) {
     result = await updateEmployerStatus(db, body.id, employerStatus);
   }
 
+  if (body.type === "applicant") {
+    const applicantStatus = body.status === "approved" || body.status === "rejected" ? body.status : null;
+    if (!applicantStatus) {
+      return NextResponse.json({ error: "Invalid applicant status" }, { status: 400 });
+    }
+    result = await updateApplicantStatus(db, body.id, applicantStatus);
+  }
 
   if (body.type === "verification_invite") {
     result = sendVerificationInvite(db, body.id);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Briefcase,
@@ -25,6 +25,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getSessionSafe } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGetCurrentPortalUser, useGetDashboardSummary, useGetEmployerProfile } from "@workspace/api-client-react";
+import { parseEmployerProfileMeta } from "@/lib/employer-profile-meta";
 
 const navItems = [
   { href: "/employer", label: "Dashboard", icon: LayoutDashboard },
@@ -78,6 +79,10 @@ function EmployerLayoutContent({ children }: { children: React.ReactNode }) {
   const profileName = currentUser?.fullName ?? profile?.contactPerson ?? "Employer";
   const profileCompany = profile?.companyName ?? "Employer Portal";
   const profileVerified = profile?.verified ?? false;
+  const profileLogoUrl = useMemo(
+    () => parseEmployerProfileMeta(profile?.headline).logoUrl ?? null,
+    [profile?.headline],
+  );
   const { isLoaded, isSignedIn } = useSupabaseSession();
 
   useEffect(() => {
@@ -138,8 +143,23 @@ function EmployerLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden rounded-full border border-[#f0bf49] bg-[#ffd45d] px-4 py-2 text-xs font-semibold text-[#3f4e5c] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] sm:flex">
-              {profileCompany}
+            <div className="hidden items-center gap-2.5 sm:flex">
+              <div className="h-9 w-9 overflow-hidden rounded-full border-2 border-white/25 bg-white/10 shadow-sm">
+                {profileLogoUrl ? (
+                  <img
+                    src={profileLogoUrl}
+                    alt={`${profileCompany} logo`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#255b89] text-sm font-bold text-white">
+                    {profileCompany.charAt(0) || "E"}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-full border border-[#f0bf49] bg-[#ffd45d] px-4 py-2 text-xs font-semibold text-[#3f4e5c] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+                {profileCompany}
+              </div>
             </div>
             <Button
               variant="destructive"
@@ -161,7 +181,15 @@ function EmployerLayoutContent({ children }: { children: React.ReactNode }) {
         <aside className="hidden rounded-[28px] border border-[#d6e1eb] bg-white/95 p-5 shadow-[0_18px_40px_rgba(37,91,142,0.08)] lg:flex lg:flex-col">
           <div className="flex flex-col items-center border-b border-[#e4ecf3] pb-5 text-center">
             <div className="mb-4 h-20 w-20 overflow-hidden rounded-[1.25rem] border-[6px] border-[#edf4fa] bg-[#2f6fa4]">
-              <img src="/logo.jpg" alt="Barangay 634 logo" className="h-full w-full object-cover" />
+              {profileLogoUrl ? (
+                <img
+                  src={profileLogoUrl}
+                  alt={`${profileCompany} logo`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <img src="/logo.jpg" alt="Barangay 634 logo" className="h-full w-full object-cover" />
+              )}
             </div>
             <div className="text-base font-semibold text-[#27384b]">{profileName}</div>
             <div className="mt-1 text-xs font-medium text-[#7c8ea1]">{profileCompany}</div>

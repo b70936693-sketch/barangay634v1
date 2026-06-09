@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ApplicantAvatar } from "@/components/applicant-avatar";
 
 export default function Dashboard() {
   const { data: recentActivity, isLoading: isLoadingActivity } = useGetRecentActivity();
@@ -169,13 +170,22 @@ export default function Dashboard() {
               ) : recentApplicants?.length ? (
                 recentApplicants.map((applicant: any) => (
                   <TableRow key={applicant.id}>
-                    <TableCell className="font-medium pl-6">{applicant.name}</TableCell>
+                    <TableCell className="pl-6">
+                      <div className="flex items-center gap-3 font-medium">
+                        <ApplicantAvatar
+                          name={applicant.fullName ?? applicant.name}
+                          photoUrl={applicant.photoUrl}
+                          size="sm"
+                        />
+                        <span>{applicant.fullName ?? applicant.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{applicant.position}</TableCell>
                     <TableCell>{format(new Date(applicant.appliedDate), "MMM d, yyyy")}</TableCell>
                     <TableCell>{getStatusBadge(applicant.status)}</TableCell>
                     <TableCell className="text-right pr-6">
                       <Button variant="secondary" size="sm" asChild>
-                        <Link href={`/all-applicants?search=${encodeURIComponent(applicant.name)}`}>View</Link>
+                        <Link href={`/employer/all-applicants?search=${encodeURIComponent(applicant.fullName ?? applicant.name ?? "")}`}>View</Link>
                       </Button>
                     </TableCell>
                   </TableRow>

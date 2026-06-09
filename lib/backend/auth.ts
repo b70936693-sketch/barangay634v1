@@ -146,7 +146,7 @@ async function ensurePortalUserRecord(user: SupabaseAuthUser, request: Request) 
           const { data: employerProfile, error: employerErr } = await sb
             .from("employer_profiles")
             .select("id")
-            .eq("user_id", user.id)
+            .eq("userId", user.id)
             .maybeSingle();
 
           if (!employerErr && employerProfile?.id) {
@@ -155,7 +155,7 @@ async function ensurePortalUserRecord(user: SupabaseAuthUser, request: Request) 
             const { data: applicantProfile, error: applicantErr } = await sb
               .from("applicant_profiles")
               .select("id")
-              .eq("user_id", user.id)
+              .eq("userId", user.id)
               .maybeSingle();
 
             if (!applicantErr && applicantProfile?.id) {
@@ -326,8 +326,8 @@ async function ensurePortalUserRecord(user: SupabaseAuthUser, request: Request) 
 
       const [{ data: employerProfile, error: employerErr }, { data: applicantProfile, error: applicantErr }] =
         await Promise.all([
-          sb.from("employer_profiles").select("id").eq("user_id", user.id).maybeSingle(),
-          sb.from("applicant_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+          sb.from("employer_profiles").select("id").eq("userId", user.id).maybeSingle(),
+          sb.from("applicant_profiles").select("id").eq("userId", user.id).maybeSingle(),
         ]);
 
       if (!employerErr && employerProfile?.id) {

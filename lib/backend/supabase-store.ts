@@ -10,11 +10,24 @@ export const supabaseStore = supabaseAdmin!
 // Uses service role key server-side via env
 
 export async function getJobPostApplications(jobPostId: string) {
+  const attempts = ["jobPostId", "job_post_id"] as const;
+
+  for (const column of attempts) {
+    const { data, error } = await supabaseStore
+      .from("applications")
+      .select("*")
+      .eq(column, jobPostId)
+      .order("applied_date", { ascending: false });
+
+    if (!error) {
+      return data || [];
+    }
+  }
+
   const { data, error } = await supabaseStore
-    .from('applications')
-    .select('*')
-    .eq('jobPostId', jobPostId)
-    .order('applied_date', { ascending: false });
+    .from("applications")
+    .select("*")
+    .eq("job_post_id", jobPostId);
 
   if (error) throw error;
   return data || [];

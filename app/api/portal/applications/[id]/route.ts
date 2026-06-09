@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { requirePortalRole } from "@/lib/backend/auth";
+import { notifyApplicantOfDecision } from "@/lib/backend/notify-applicant-decision";
 import { readDatabase, writeDatabase, setApplicationStatus } from "@/lib/backend/store";
 import type { ApplicationRecord } from "@/lib/backend/types";
 
@@ -40,6 +41,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized: not your application" }, { status: 403 });
   }
 
+  const previousStatus = application.status;
   const updatedApp = setApplicationStatus(db, id, status as ApplicationRecord["status"], {
     interviewDate,
     interviewTime,
@@ -47,6 +49,18 @@ export async function PATCH(
   });
   if (!updatedApp) {
     return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
+  }
+
+  let notificationResult = null;
+  if (
+    previousStatus !== status &&
+    (status === "hired" || status === "rejected")
+  ) {
+    try {
+      notificationResult = await notifyApplicantOfDecision(db, updatedApp, status);
+    } catch (error) {
+      console.error("Applicant decision notification failed:", error);
+    }
   }
 
   try {
@@ -57,5 +71,14 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  return NextResponse.json({ application: updatedApp });
+  return NextResponse.json({
+    application: updatedApp,
+    notification: notificationResult
+      ? {
+          emailSent: notificationResult.emailSent,
+          emailError: notificationResult.emailError,
+          inApp: true,
+        }
+      : null,
+  });
 }

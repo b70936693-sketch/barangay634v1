@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ApplicantAvatar } from "@/components/applicant-avatar";
 import { StatusBadge } from "../_components";
 import { VerificationReviewModal } from "../_verification-review-modal";
 import { useAdminPortal } from "../api-client-react";
@@ -22,6 +23,7 @@ type ApplicantView = {
   documentCount: number;
   latestApplicationStatus: string;
   latestAppliedAt: string;
+  photoUrl?: string | null;
 };
 
 export default function ApplicantsPage() {
@@ -30,7 +32,9 @@ export default function ApplicantsPage() {
 
   const applicants = useMemo<ApplicantView[]>(() => {
     const allUsers = (Array.isArray(data?.allUsers) ? data.allUsers : []) as UserRecord[];
-    const profiles = (Array.isArray(data?.applicantProfiles) ? data.applicantProfiles : []) as ApplicantProfile[];
+    const profiles = (Array.isArray(data?.applicantProfiles) ? data.applicantProfiles : []) as Array<
+      ApplicantProfile & { photoUrl?: string | null }
+    >;
     const applications = (Array.isArray(data?.applications) ? data.applications : []) as ApplicationRecord[];
     const verifications = (Array.isArray(data?.verifications) ? data.verifications : []) as VerificationRecord[];
 
@@ -63,6 +67,7 @@ export default function ApplicantsPage() {
           documentCount: verification?.documents?.length ?? 0,
           latestApplicationStatus: latestApplication?.status ?? "no_application",
           latestAppliedAt: latestApplication?.appliedDate ?? "",
+          photoUrl: profile?.photoUrl ?? null,
         };
       })
       .sort((a: ApplicantView, b: ApplicantView) => +new Date(b.submittedAt) - +new Date(a.submittedAt));
@@ -103,8 +108,13 @@ export default function ApplicantsPage() {
                 {applicants.map((applicant) => (
                   <tr key={applicant.id} className="hover:bg-[#fbfdff]">
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-[#203142]">{applicant.name}</div>
-                      <div className="mt-1 text-xs text-[#7b8ca0]">{applicant.email}</div>
+                      <div className="flex items-center gap-3">
+                        <ApplicantAvatar name={applicant.name} photoUrl={applicant.photoUrl} size="sm" />
+                        <div>
+                          <div className="font-semibold text-[#203142]">{applicant.name}</div>
+                          <div className="mt-1 text-xs text-[#7b8ca0]">{applicant.email}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-sm text-[#47627f]">{applicant.phone}</td>
                     <td className="px-5 py-4 text-sm text-[#47627f]">{applicant.barangay}</td>
@@ -148,6 +158,9 @@ export default function ApplicantsPage() {
         onCloseAction={() => setSelectedApplicant(null)}
         title={selectedApplicant?.name ?? "Applicant Submission"}
         subtitle="Applicant verification details, supporting documents, and review controls."
+        imageUrl={selectedApplicant?.photoUrl}
+        imageName={selectedApplicant?.name}
+        imageKind="applicant"
         fields={[
           { label: "Email", value: selectedApplicant?.email ?? "" },
           { label: "Phone", value: selectedApplicant?.phone ?? "" },

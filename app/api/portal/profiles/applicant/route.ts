@@ -10,14 +10,20 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json();
-  const db = await readDatabase();
 
-  const profile = updateApplicantProfileByUserId(db, user.id, body);
+  try {
+    const db = await readDatabase();
+    const profile = updateApplicantProfileByUserId(db, user.id, body);
 
-  if (!profile) {
-    return NextResponse.json({ error: "Applicant profile not found" }, { status: 404 });
+    if (!profile) {
+      return NextResponse.json({ error: "Applicant profile not found" }, { status: 404 });
+    }
+
+    await writeDatabase(db);
+    return NextResponse.json({ profile, portal: withDerivedData(db, user) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to save applicant profile";
+    console.error("PATCH /api/portal/profiles/applicant failed:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  await writeDatabase(db);
-  return NextResponse.json({ profile, portal: withDerivedData(db, user) });
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { EmployerAvatar } from "@/components/employer-avatar";
 import { StatusBadge } from "../_components";
 import { VerificationReviewModal } from "../_verification-review-modal";
 import { useAdminPortal } from "../api-client-react";
@@ -20,6 +21,7 @@ type EmployerView = {
   verificationStatus: "pending" | "approved" | "rejected" | null;
   verificationNotes: string;
   documentCount: number;
+  logoUrl?: string | null;
 };
 
 type EmployerPortalRow = {
@@ -31,6 +33,7 @@ type EmployerPortalRow = {
   location: string;
   verified: boolean;
   count_applications: number;
+  logoUrl?: string | null;
 };
 
 export default function EmployersPage() {
@@ -67,6 +70,7 @@ export default function EmployersPage() {
           verificationStatus: verification?.status ?? (profile.verified ? "approved" : "pending"),
           verificationNotes: verification?.notes ?? "",
           documentCount: verification?.documents?.length ?? 0,
+          logoUrl: profile.logoUrl ?? null,
         };
       })
       .sort((a: EmployerView, b: EmployerView) => +new Date(b.submittedAt || 0) - +new Date(a.submittedAt || 0));
@@ -93,13 +97,16 @@ export default function EmployersPage() {
               key={employer.id}
               className="grid gap-4 rounded-3xl border border-[#dbe5ef] bg-[#fbfdff] p-5 md:grid-cols-[minmax(0,1.3fr)_140px_140px_160px] md:items-center"
             >
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-start gap-3">
+                <EmployerAvatar name={employer.companyName} logoUrl={employer.logoUrl} size="md" />
+                <div className="min-w-0">
                 <div className="text-base font-semibold text-[#203142]">{employer.companyName}</div>
                 <div className="mt-1 text-sm text-[#47627f]">
                   {employer.contactPerson} • {employer.businessType}
                 </div>
                 <div className="mt-1 text-xs text-[#7b8ca0]">
                   {employer.email} • {employer.location}
+                </div>
                 </div>
               </div>
               <div className="text-sm font-semibold text-[#203142]">{employer.applications} applications</div>
@@ -131,6 +138,9 @@ export default function EmployersPage() {
         title={selectedEmployer?.companyName ?? "Employer Submission"}
         subtitle="Employer verification details, uploaded files, and admin review controls."
         employerId={selectedEmployer?.id ?? null}
+        imageUrl={selectedEmployer?.logoUrl}
+        imageName={selectedEmployer?.companyName}
+        imageKind="employer"
         fields={[
           { label: "Contact Person", value: selectedEmployer?.contactPerson ?? "" },
           { label: "Email", value: selectedEmployer?.email ?? "" },

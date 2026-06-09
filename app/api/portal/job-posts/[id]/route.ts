@@ -243,7 +243,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // Find job post and verify ownership
     const { data: existingPost, error: postError } = await adminAny
       .from('job_posts')
-      .select('employer_id')
+      .select('employer_id, status')
       .eq('id', id)
       .single();
 
@@ -255,12 +255,40 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Not your post" }, { status: 403 });
     }
 
+    if (data.status === "active") {
+      return NextResponse.json({ error: "Only admins can approve job posts" }, { status: 403 });
+    }
+
+    const contentFields = [
+      "title",
+      "position",
+      "postType",
+      "qualifications",
+      "requirements",
+      "description",
+      "employmentType",
+      "schedule",
+      "salary",
+      "urgency",
+      "benefits",
+      "employerRequirements",
+      "adminRequirements",
+    ] as const;
+    const hasContentUpdate = contentFields.some((field) => data[field] !== undefined);
+    const shouldResubmitForReview =
+      hasContentUpdate && (existingPost.status === "rejected" || existingPost.status === "closed");
+
     // Build update payload - map camelCase to snake_case for Supabase
     const updatePayload: Record<string, any> = {};
     if (data.title !== undefined) updatePayload.title = data.title;
     if (data.position !== undefined) updatePayload.position = data.position;
     if (data.postType !== undefined) updatePayload.post_type = data.postType;
-    if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.status !== undefined && data.status !== "active") updatePayload.status = data.status;
+    if (shouldResubmitForReview) {
+      updatePayload.status = "pending";
+      updatePayload.rejection_notes = null;
+      updatePayload.published_at = null;
+    }
     if (data.qualifications !== undefined) updatePayload.qualifications = data.qualifications;
     if (data.requirements !== undefined) updatePayload.requirements = data.requirements;
     if (data.description !== undefined) updatePayload.description = data.description;
@@ -313,7 +341,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "Not your post" }, { status: 403 });
   }
 
-  Object.assign(jobPost, data);
+  if (data.status === "active") {
+    return NextResponse.json({ error: "Only admins can approve job posts" }, { status: 403 });
+  }
+
+  const contentFields = [
+    "title",
+    "position",
+    "postType",
+    "qualifications",
+    "requirements",
+    "description",
+    "employmentType",
+    "schedule",
+    "salary",
+    "urgency",
+    "benefits",
+    "employerRequirements",
+    "adminRequirements",
+  ] as const;
+  const hasContentUpdate = contentFields.some((field) => data[field] !== undefined);
+  const shouldResubmitForReview =
+    hasContentUpdate && (jobPost.status === "rejected" || jobPost.status === "closed");
+
+  const { status: requestedStatus, ...contentUpdates } = data;
+  Object.assign(jobPost, contentUpdates);
+
+  if (requestedStatus !== undefined && requestedStatus !== "active") {
+    jobPost.status = requestedStatus;
+  }
+
+  if (shouldResubmitForReview) {
+    jobPost.status = "pending";
+    jobPost.rejectionNotes = "";
+    jobPost.publishedAt = null;
+  }
+
   await writeDatabase(db, true);
 
   return NextResponse.json({ jobPost });

@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { requirePortalRole } from "@/lib/backend/auth";
 import { readDatabase } from "@/lib/backend/store";
+import type { PortalDatabase, VerificationRecord } from "@/lib/backend/types";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 const BUCKET_NAME = process.env.SUPABASE_VERIFICATION_BUCKET || "verification-ids";
@@ -40,6 +41,80 @@ async function resolvePublicDocumentUrl(documentPath: string) {
   }
 }
 
+function resolveVerificationContext(db: PortalDatabase, id: string) {
+  const direct = db.verifications.find((item) => item.id === id);
+  if (direct) {
+    return { verification: direct, documentPaths: direct.documents ?? [] };
+  }
+
+  if (id.startsWith("employer-")) {
+    const employerId = id.slice("employer-".length);
+    const employer = db.employerProfiles.find((profile) => profile.id === employerId);
+    if (!employer) return null;
+
+    const user = db.users.find((entry) => entry.id === employer.userId);
+    const verification = db.verifications.find(
+      (record) =>
+        record.type === "Employer Verification" &&
+        (record.email?.toLowerCase() === user?.email?.toLowerCase() ||
+          record.subjectName === employer.companyName ||
+          record.subjectName === employer.contactPerson)
+    );
+
+    return {
+      verification:
+        verification ??
+        ({
+          id,
+          type: "Employer Verification",
+          subjectName: employer.companyName,
+          email: user?.email,
+          status: employer.verified ? "approved" : "pending",
+          submittedAt: user?.createdAt ?? new Date().toISOString(),
+          documents: [],
+        } satisfies VerificationRecord),
+      documentPaths: verification?.documents ?? [],
+    };
+  }
+
+  if (id.startsWith("applicant-")) {
+    const userId = id.slice("applicant-".length);
+    const user = db.users.find((entry) => entry.id === userId);
+    if (!user) return null;
+
+    const profile =
+      db.applicantProfiles.find((entry) => entry.userId === userId) ??
+      db.applicantProfiles.find((entry) => entry.email?.toLowerCase() === user.email?.toLowerCase());
+
+    const verification = db.verifications.find(
+      (record) =>
+        record.type === "Applicant Verification" &&
+        (record.email?.toLowerCase() === user.email?.toLowerCase() ||
+          record.subjectName === (profile?.fullName ?? user.fullName))
+    );
+
+    const documentPaths =
+      verification?.documents?.length ? verification.documents : (profile?.documentsReady ?? []);
+
+    return {
+      verification:
+        verification ??
+        ({
+          id,
+          type: "Applicant Verification",
+          subjectName: profile?.fullName ?? user.fullName,
+          email: user.email,
+          status: user.status === "verified" ? "approved" : user.status === "suspended" ? "rejected" : "pending",
+          submittedAt: user.createdAt,
+          documents: documentPaths,
+        } satisfies VerificationRecord),
+      documentPaths,
+    };
+  }
+
+  return null;
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -51,14 +126,16 @@ export async function GET(
 
   const { id } = await context.params;
   const db = await readDatabase();
-  const verification = db.verifications.find((item) => item.id === id);
+  const contextResult = resolveVerificationContext(db, id);
 
-  if (!verification) {
+  if (!contextResult) {
     return NextResponse.json({ error: "Verification not found" }, { status: 404 });
   }
 
+  const { verification, documentPaths } = contextResult;
+
   const documents = await Promise.all(
-    (verification.documents ?? []).map(async (documentPath) => {
+    documentPaths.map(async (documentPath) => {
       const normalizedPath = documentPath?.trim() ?? "";
       if (!normalizedPath) {
         return null;

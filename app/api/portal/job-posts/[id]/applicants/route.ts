@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { requirePortalRole } from "@/lib/backend/auth";
-import { getCurrentPortalUser } from "@/lib/backend/auth";
-import { supabaseStore, getJobPostApplications } from "@/lib/backend/supabase-store";
-import { mapApplicationRow, readDatabase } from "@/lib/backend/store";
-import { supabaseAdmin } from "@/lib/supabase-server";
 
-
+import { getCurrentPortalUser, requirePortalRole } from "@/lib/backend/auth";
+import { getApplicantPhotoUrl, resolveApplicantProfileForApplication } from "@/lib/applicant-profile-meta";
+import { getEmployerProfile, readDatabase } from "@/lib/backend/store";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requirePortalRole(request, "employer");
   if (!user) {
@@ -17,91 +14,42 @@ export async function GET(
   }
 
   const { portalUser } = await getCurrentPortalUser(request);
-  if (!portalUser || !portalUser.role || portalUser.role !== 'employer') {
+  if (!portalUser || portalUser.role !== "employer") {
     return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
   }
 
-  const { data: employerProfile, error: employerProfileError } = await supabaseStore!
-    .from('employer_profiles')
-    .select('id, user_id')
-    .eq('user_id', portalUser.id)
-    .maybeSingle();
-
-  if (employerProfileError || !employerProfile?.id) {
-    return NextResponse.json(
-      { error: "Employer profile not found", employerProfileError, portalUserId: portalUser.id },
-      { status: 404 }
-    );
-  }
-
-  const employerProfileId = employerProfile.id;
-  const employerUserId = (employerProfile as any).user_id as string | undefined;
-
-
-  const { data: jobPost, error: jobError } = await supabaseStore!
-    .from('job_posts')
-    .select('employer_id')
-    .eq('id', params.id)
-    .single();
-
-  const employerIdOnJobPost = (jobPost as any)?.employer_id;
-
-  // Some schemas store job_posts.employer_id pointing to employer_profiles.id,
-  // others point to employer_profiles.user_id. Allow both to prevent false 403s.
-  const isAuthorized =
-    !jobError &&
-    !!jobPost &&
-    (employerIdOnJobPost === employerProfileId || employerIdOnJobPost === employerUserId);
-
-  if (!isAuthorized) {
-    return NextResponse.json(
-      {
-        error: "Job post not found or unauthorized",
-        debug: {
-          portalUserId: portalUser.id,
-          employerProfile: employerProfile,
-          jobPostId: params.id,
-          employerIdOnJobPost,
-          expectedEmployerProfileId: employerProfileId,
-          expectedEmployerUserId: employerUserId,
-        },
-      },
-      { status: 403 }
-    );
-  }
-
-
-
-
-  // Fetch applications.
-  // If Supabase reads are available, use them.
-  // Otherwise, fall back to the JSON store (applicants submission writes to JSON).
-  try {
-    if (supabaseAdmin) {
-      const apps = await getJobPostApplications(params.id);
-      if (Array.isArray(apps)) {
-        return NextResponse.json({ applications: apps.map(mapApplicationRow) });
-      }
-    }
-  } catch (e) {
-    console.warn("Supabase applicants fetch failed, using JSON fallback:", e);
+  const { id: jobPostId } = await params;
+  if (!jobPostId) {
+    return NextResponse.json({ error: "Job post id is required" }, { status: 400 });
   }
 
   const db = await readDatabase();
+  const employerProfile = getEmployerProfile(db, portalUser.id, portalUser.email);
+  if (!employerProfile) {
+    return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+  }
 
-  const appsFromJson = db.applications
-    .filter((app) => {
-      if (app.jobPostId !== params.id) return false;
-      const post = db.jobPosts.find((p) => p.id === app.jobPostId);
-      if (!post) return false;
-      return post.employerId === employerProfileId || post.employerId === employerUserId;
-    })
-    .map(mapApplicationRow);
+  const jobPost = db.jobPosts.find((post) => post.id === jobPostId);
+  const ownsJobPost =
+    jobPost &&
+    (jobPost.employerId === employerProfile.id || jobPost.employerId === portalUser.id);
 
-  return NextResponse.json({ applications: appsFromJson });
+  if (!jobPost || !ownsJobPost) {
+    return NextResponse.json({ error: "Job post not found or unauthorized" }, { status: 403 });
+  }
 
+  const applications = db.applications
+    .filter((application) => application.jobPostId === jobPostId)
+    .sort((a, b) => +new Date(b.appliedDate) - +new Date(a.appliedDate))
+    .map((application) => {
+      const applicantProfile = resolveApplicantProfileForApplication(db.applicantProfiles, application);
+      return {
+        ...application,
+        photoUrl: getApplicantPhotoUrl(applicantProfile?.headline),
+        jobTitle: jobPost.title,
+        employerName: employerProfile.companyName,
+      };
+    });
 
-
+  return NextResponse.json({ applications });
 }
-
-

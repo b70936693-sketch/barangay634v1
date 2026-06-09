@@ -42,6 +42,9 @@ function usePortal() {
   return useQuery({
     queryKey: ["portal"],
     queryFn: () => fetchJson<any>("/api/portal"),
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -55,6 +58,9 @@ function usePortalMutation<TVariables>(options: {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["portal"] }),
+        queryClient.invalidateQueries({ queryKey: ["job-post-applicants"] }),
+        queryClient.invalidateQueries({ queryKey: ["applicant-notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["employer-job-posts"] }),
         queryClient.invalidateQueries({ queryKey: ["job-post-applicants"] }),
       ]);
     },
@@ -119,8 +125,11 @@ export const useCreateJobPost = () =>
 
 export const useListJobPosts = () => {
   return useQuery({
-    queryKey: ['employer-job-posts'],
-    queryFn: () => fetchJson<{ jobPosts: any[] }>('/api/portal/job-posts'),
+    queryKey: ["employer-job-posts"],
+    queryFn: () => fetchJson<{ jobPosts: any[] }>("/api/portal/job-posts"),
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -141,7 +150,7 @@ export const useListPendingApplicants = () => {
   };
 };
 
-export const useListJobPostApplicants = (jobPostId?: string) => {
+export const useListJobPostApplicants = (jobPostId?: string, enabled = true) => {
   return useQuery({
     queryKey: ["job-post-applicants", jobPostId],
     queryFn: async () => {
@@ -150,7 +159,9 @@ export const useListJobPostApplicants = (jobPostId?: string) => {
       );
       return data.applications ?? [];
     },
-    enabled: !!jobPostId,
+    enabled: Boolean(jobPostId) && enabled,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -220,14 +231,63 @@ export const useGetCurrentPortalUser = () => {
   return { ...query, data: query.data?.currentUser ?? null };
 };
 
-export const useUpdateApplicantProfile = () =>
-  usePortalMutation<Record<string, unknown>>({
-    mutationFn: (data) =>
-      fetchJson("/api/portal/profiles/applicant", {
+export const useUpdateApplicantProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      fetchJson<{ portal?: Record<string, unknown> }>("/api/portal/profiles/applicant", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
+    onSuccess: async (response) => {
+      if (response?.portal) {
+        queryClient.setQueryData(["portal"], (current: Record<string, unknown> | undefined) => ({
+          ...(current ?? {}),
+          ...response.portal,
+        }));
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["portal"] });
+    },
   });
+};
+
+export const useUpdateEmployerProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      companyName?: string;
+      businessType?: string;
+      location?: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      logoUrl?: string | null;
+      tagline?: string;
+    }) =>
+      fetchJson<{ portal?: Record<string, unknown> }>("/api/portal/profiles/employer", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: async (response) => {
+      if (response?.portal) {
+        queryClient.setQueryData(["portal"], (current: Record<string, unknown> | undefined) => ({
+          ...(current ?? {}),
+          ...response.portal,
+        }));
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["portal"] }),
+        queryClient.invalidateQueries({ queryKey: ["job-post-applicants"] }),
+        queryClient.invalidateQueries({ queryKey: ["applicant-notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["employer-job-posts"] }),
+      ]);
+    },
+  });
+};
 
 export const useUpdateJobPost = () =>
   usePortalMutation<{ id: string; data: any }>({
@@ -266,6 +326,55 @@ export const useSubmitJobApplication = () =>
         }),
       }),
   });
+
+export const useListApplicantNotifications = () =>
+  useQuery({
+    queryKey: ["applicant-notifications"],
+    queryFn: () =>
+      fetchJson<{
+        notifications: Array<{
+          id: string;
+          type: "hired" | "rejected";
+          title: string;
+          message: string;
+          jobTitle: string;
+          employerName: string;
+          emailSent: boolean;
+          emailError?: string;
+          read: boolean;
+          createdAt: string;
+        }>;
+        unreadCount: number;
+      }>("/api/portal/notifications"),
+  });
+
+export const useMarkApplicantNotificationRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { notificationId: string }) =>
+      fetchJson("/api/portal/notifications", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["applicant-notifications"] });
+    },
+  });
+};
+
+export const useMarkAllApplicantNotificationsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      fetchJson("/api/portal/notifications", {
+        method: "PATCH",
+        body: JSON.stringify({ markAll: true }),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["applicant-notifications"] });
+    },
+  });
+};
 
 export const useUpdateJobApplication = () =>
   usePortalMutation<{

@@ -3,14 +3,49 @@ import { requirePortalRole } from "@/lib/backend/auth";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { readDatabase, writeDatabase, updateJobPostStatusWithNotes, updateJobPostStatus } from "@/lib/backend/store";
 
+async function updateJobPostRow(
+  adminClient: NonNullable<typeof supabaseAdmin>,
+  jobId: string,
+  payload: Record<string, unknown>,
+) {
+  const adminAny = adminClient as any;
+  let currentPayload = { ...payload };
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data, error } = await adminAny
+      .from("job_posts")
+      .update(currentPayload)
+      .eq("id", jobId)
+      .select()
+      .single();
+
+    if (!error) {
+      return { data, error: null };
+    }
+
+    if (error.code === "PGRST204") {
+      const match = String(error.message ?? "").match(/'([^']+)' column/);
+      const missingColumn = match?.[1];
+      if (missingColumn && missingColumn in currentPayload) {
+        const { [missingColumn]: _removed, ...rest } = currentPayload;
+        currentPayload = rest;
+        continue;
+      }
+    }
+
+    return { data: null, error };
+  }
+
+  return {
+    data: null,
+    error: { message: "Failed to update job post after removing unsupported columns." },
+  };
+}
+
 export async function PATCH(request: Request) {
   const user = await requirePortalRole(request, "admin");
   if (!user) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   }
 
   const { jobId, status, rejectionNotes } = await request.json();
@@ -37,23 +72,16 @@ export async function PATCH(request: Request) {
   if (trimmedNotes) updatePayload.rejection_notes = trimmedNotes;
 
   try {
-    // If activating, set published timestamp
     if (updateStatus === "active") {
       updatePayload.published_at = new Date().toISOString();
+    } else {
+      updatePayload.published_at = null;
     }
 
     // If Supabase is configured, update there first. Use a non-null cast because
     // we've already ensured the caller is an admin and this path is valid.
     if (supabaseAdmin) {
-      const adminAny = supabaseAdmin as any;
-      // IMPORTANT: update by id only; do not require current status === pending,
-      // otherwise the mutation can fail and the UI will refetch old status.
-      const { data, error } = await adminAny
-        .from("job_posts")
-        .update(updatePayload)
-        .eq("id", jobId)
-        .select()
-        .single();
+      const { data, error } = await updateJobPostRow(supabaseAdmin, jobId, updatePayload);
 
       if (error) throw error;
       if (!data) {

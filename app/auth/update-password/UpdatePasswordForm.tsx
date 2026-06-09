@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { supabase } from "@/lib/supabase";
+import { getSessionSafe, supabase } from "@/lib/supabase";
 
-function getResetTokenFromHash(): string | null {
+function getRecoveryTokensFromHash() {
   if (typeof window === "undefined") return null;
+
   const hash = window.location.hash.replace(/^#/, "");
   if (!hash) return null;
+
   const params = new URLSearchParams(hash);
-  return params.get("access_token") ?? params.get("token");
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  const type = params.get("type");
+
+  if (!accessToken || type !== "recovery") {
+    return null;
+  }
+
+  return { accessToken, refreshToken };
 }
 
 export default function UpdatePasswordForm() {
@@ -19,28 +29,70 @@ export default function UpdatePasswordForm() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
   const [isUpdating, setIsUpdating] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const initializeRecoverySession = async () => {
+      setIsInitializing(true);
+      setErrorMessage(null);
 
-    const queryToken = searchParams.get("access_token") ?? searchParams.get("token");
-    const hashToken = getResetTokenFromHash();
+      try {
+        const code = searchParams.get("code");
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            setErrorMessage("This password reset link is invalid or expired. Request a new one from Log In.");
+            return;
+          }
+          setIsReady(true);
+          return;
+        }
 
-    setToken(queryToken ?? hashToken ?? null);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+        const hashTokens = getRecoveryTokensFromHash();
+        if (hashTokens) {
+          const { error } = await supabase.auth.setSession({
+            access_token: hashTokens.accessToken,
+            refresh_token: hashTokens.refreshToken ?? "",
+          });
+          if (error) {
+            setErrorMessage("This password reset link is invalid or expired. Request a new one from Log In.");
+            return;
+          }
+          setIsReady(true);
+          return;
+        }
+
+        const sessionResult = await getSessionSafe();
+        if (sessionResult.data?.session) {
+          setIsReady(true);
+          return;
+        }
+
+        setErrorMessage("This password reset link is invalid or expired. Request a new one from Log In.");
+      } catch (error) {
+        console.error("Unable to initialize password recovery session:", error);
+        setErrorMessage("Unable to verify your reset link. Please request a new one.");
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    void initializeRecoverySession();
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+
+    if (!isReady) {
+      setErrorMessage("This password reset link is invalid or expired. Request a new one from Log In.");
+      return;
+    }
 
     if (!newPassword || newPassword.length < 6) {
       setErrorMessage("Password must be at least 6 characters.");
@@ -52,28 +104,20 @@ export default function UpdatePasswordForm() {
       return;
     }
 
-    if (!token) {
-      setErrorMessage("This password reset link is invalid or expired. Request a new one from Sign In.");
-      return;
-    }
-
     setIsUpdating(true);
     try {
-      const { error } = await supabase.auth.updateUser(
-        { password: newPassword },
-        { access_token: token } as any
-      );
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       if (error) {
-        const res = await supabase.auth.updateUser({ password: newPassword });
-        if (res.error) {
-          setErrorMessage(res.error.message || error.message || "Unable to update password.");
-          return;
-        }
+        setErrorMessage(error.message || "Unable to update password.");
+        return;
       }
 
-      setSuccessMessage("Your password has been updated. Redirecting to sign in...");
-      router.push("/auth/continue?role=applicant");
+      await supabase.auth.signOut();
+      setSuccessMessage("Your password has been updated. Redirecting to log in...");
+      window.setTimeout(() => {
+        router.push("/");
+      }, 1500);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg || "Unable to update password.");
@@ -88,49 +132,51 @@ export default function UpdatePasswordForm() {
         <h1 className="text-2xl font-bold text-slate-900">Update Password</h1>
         <p className="mt-2 text-sm text-slate-500">Choose a new password to complete your reset.</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          <div className="space-y-2">
-            <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-700">New password</span>
+        {isInitializing ? (
+          <p className="mt-8 text-sm text-slate-500">Verifying your reset link...</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-8 space-y-3">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white focus-within:border-[#2f6fa4] focus-within:ring-2 focus-within:ring-[#2f6fa4]/15">
               <input
                 type="password"
+                placeholder="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                disabled={!isReady || isUpdating}
+                className="w-full border-0 bg-transparent px-4 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:opacity-60"
               />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Confirm password</span>
+              <div className="h-px bg-slate-200" />
               <input
                 type="password"
+                placeholder="Confirm password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                disabled={!isReady || isUpdating}
+                className="w-full border-0 bg-transparent px-4 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:opacity-60"
               />
-            </label>
-          </div>
+            </div>
 
-          {errorMessage ? (
-            <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div>
-          ) : null}
+            {errorMessage ? (
+              <p className="px-1 text-sm text-red-600">{errorMessage}</p>
+            ) : null}
 
-          {successMessage ? (
-            <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMessage}</div>
-          ) : null}
+            {successMessage ? (
+              <p className="px-1 text-sm text-emerald-700">{successMessage}</p>
+            ) : null}
 
-          <button
-            type="submit"
-            disabled={isUpdating}
-            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isUpdating ? "Updating..." : "Update Password"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={isUpdating || !isReady}
+              className="w-full rounded-2xl bg-[#2f6fa4] py-3 text-sm font-semibold text-white transition hover:bg-[#244f7b] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isUpdating ? "Updating..." : "Update Password"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

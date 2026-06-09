@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { format } from "date-fns";
 
 import { Edit3, Eye, Clock, Briefcase, Calendar, PlusCircle, Users, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ const statusConfig = {
 export default function MyJobPostsPage() {
   const { data: { jobPosts = [] } = {}, isLoading } = useListJobPosts();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedJobPostId, setSelectedJobPostId] = useState("");
+  const [selectedJobPost, setSelectedJobPost] = useState<{ id: string; title: string } | null>(null);
 
   const grouped = useMemo(() => {
     const groups = {
@@ -44,8 +45,8 @@ export default function MyJobPostsPage() {
     return groups;
   }, [jobPosts]);
 
-  const openModal = (jobPostId: string) => {
-    setSelectedJobPostId(jobPostId);
+  const openModal = (post: { id: string; title: string }) => {
+    setSelectedJobPost(post);
     setIsModalOpen(true);
   };
 
@@ -152,10 +153,14 @@ export default function MyJobPostsPage() {
           )}
         </>
       )}
-      <ApplicantModal 
-        jobPostId={selectedJobPostId} 
-        open={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <ApplicantModal
+        jobPostId={selectedJobPost?.id ?? ""}
+        jobTitle={selectedJobPost?.title}
+        open={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedJobPost(null);
+        }}
       />
     </div>
   );
@@ -164,13 +169,29 @@ export default function MyJobPostsPage() {
 interface JobPostCardProps {
   post: any;
   type: "active" | "pending" | "closed";
-  openModal: (id: string) => void;
+  openModal: (post: { id: string; title: string }) => void;
+}
+
+function getApplicantCount(post: { applicantCount?: number; applicant_count?: number }) {
+  return post.applicantCount ?? post.applicant_count ?? 0;
+}
+
+function getPostedDateLabel(post: { publishedAt?: string | null; postedAt?: string | null; createdAt?: string; created_at?: string }) {
+  const raw = post.publishedAt ?? post.postedAt ?? post.createdAt ?? post.created_at;
+  if (!raw) return "Date unavailable";
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+
+  return format(date, "MMM d, yyyy");
 }
 
 function JobPostCard({ post, type, openModal }: JobPostCardProps) {
   const status =
     statusConfig[post.status as keyof typeof statusConfig] ??
     { label: "Unknown", color: "secondary" };
+  const applicantCount = getApplicantCount(post);
+  const postedDate = getPostedDateLabel(post);
 
   return (
     <Card className="overflow-hidden hover:shadow-[0_20px_40px_rgba(37,91,142,0.12)] transition-all hover:-translate-y-1">
@@ -187,11 +208,11 @@ function JobPostCard({ post, type, openModal }: JobPostCardProps) {
         <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-wide">
           <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 backdrop-blur-sm">
             <Users className="h-3 w-3" />
-            {post.applicant_count || 0} applicants
+            {applicantCount} {applicantCount === 1 ? "applicant" : "applicants"}
           </div>
           <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 backdrop-blur-sm">
             <Calendar className="h-3 w-3" />
-            Posted {new Date(post.created_at).toLocaleDateString()}
+            Posted {postedDate}
           </div>
         </div>
       </CardHeader>
@@ -218,10 +239,10 @@ function JobPostCard({ post, type, openModal }: JobPostCardProps) {
           </Link>
           <Button 
             className="w-full justify-center gap-2 text-xs h-9 flex-1 bg-primary hover:bg-primary/90"
-            onClick={() => openModal(post.id)}
+            onClick={() => openModal({ id: post.id, title: post.title })}
           >
             <Eye className="h-3.5 w-3.5" />
-            {post.applicant_count || 0} Applicants
+            {applicantCount} {applicantCount === 1 ? "Applicant" : "Applicants"}
           </Button>
         </div>
       </CardContent>

@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { resolvePortalSessionRedirect } from '@/lib/client-portal-sign-in'
 import { useSupabaseSession } from '@/lib/hooks/useSupabaseSession'
 import { UserNameDisplay } from './UserNameDisplay';
 
@@ -8,6 +10,20 @@ export default function Header() {
   const router = useRouter()
   const { isLoaded, isSignedIn, user, signOut } = useSupabaseSession()
   const genericRedirectUrl = encodeURIComponent('/auth/continue')
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+
+    const redirectSignedInUser = async () => {
+      const destination = await resolvePortalSessionRedirect()
+      if (!destination || destination === '/') return
+      if (window.location.pathname === '/' || window.location.pathname.startsWith('/sign-in')) {
+        router.replace(destination)
+      }
+    }
+
+    void redirectSignedInUser()
+  }, [isLoaded, isSignedIn, router])
 
   if (!isLoaded) {
     return (
@@ -30,7 +46,7 @@ export default function Header() {
                 window.sessionStorage.removeItem('jobserve_pending_email');
                 window.localStorage.removeItem('jobserve_pending_email');
               }
-              router.push(`/sign-in?redirect_url=${genericRedirectUrl}`);
+              router.push('/');
             }}
             className="rounded-full border border-slate-900 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
           >

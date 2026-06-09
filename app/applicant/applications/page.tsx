@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Calendar, MapPin, Briefcase, Clock, FileText, Building2, BadgeCheck, Edit, Eye, MapPinned, Phone, Mail, User, Download, ExternalLink, Send } from "lucide-react";
+import Link from "next/link";
+import { Calendar, MapPin, Briefcase, Clock, FileText, Building2, BadgeCheck, Edit, Eye, MapPinned, Phone, Mail, User, Download, ExternalLink, Send, Bell, PartyPopper, HeartCrack } from "lucide-react";
 import { getDocumentHref, getDocumentName } from "@/app/employer/lib/portal-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useListApplicantApplications, useUpdateJobApplication } from "@workspace/api-client-react";
+import { useListApplicantApplications, useListApplicantNotifications, useUpdateJobApplication } from "@workspace/api-client-react";
+import { InterviewGuidancePanel, InterviewSummaryCard } from "@/lib/interview-guidance";
+import { buildMailtoLink, buildSmsLink, buildTelLink, formatPhoneDisplay } from "@/lib/phone-links";
 
 const statusConfig = {
   pending: { label: "Pending Review", color: "default" },
@@ -23,7 +26,9 @@ const statusConfig = {
 
 export default function ApplicantApplicationsPage() {
   const { data: applications = [], isLoading } = useListApplicantApplications();
+  const { data: notificationData } = useListApplicantNotifications();
   const updateApplication = useUpdateJobApplication();
+  const recentDecisionAlerts = (notificationData?.notifications ?? []).filter((item) => !item.read).slice(0, 2);
   const { toast } = useToast();
   const [editingApplication, setEditingApplication] = useState<any>(null);
   const [viewInterviewApp, setViewInterviewApp] = useState<any>(null);
@@ -119,6 +124,46 @@ export default function ApplicantApplicationsPage() {
         <h2 className="text-2xl font-bold tracking-tight text-[#224264]">My Applications</h2>
         <p className="text-[#73869a]">Track your job applications, interview schedules, and hiring status across all employers.</p>
       </div>
+
+      {recentDecisionAlerts.length > 0 ? (
+        <div className="space-y-3">
+          {recentDecisionAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className={`overflow-hidden rounded-2xl border p-4 shadow-sm ${
+                alert.type === "hired"
+                  ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50"
+                  : "border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                      alert.type === "hired" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                    }`}
+                  >
+                    {alert.type === "hired" ? <PartyPopper className="h-5 w-5" /> : <HeartCrack className="h-5 w-5" />}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#24364a]">{alert.title}</p>
+                    <p className="mt-1 text-sm text-[#5d7285]">{alert.message}</p>
+                    <p className="mt-1 text-xs text-[#8a99ab]">
+                      {alert.emailSent ? "Email notification sent" : "Saved in your notification center"}
+                    </p>
+                  </div>
+                </div>
+                <Button asChild variant="outline" className="rounded-full border-[#2f6fa4]/30 text-[#2f6fa4]">
+                  <Link href="/applicant/notifications">
+                    <Bell className="mr-2 h-4 w-4" />
+                    View all alerts
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {grouped.active.length === 0 && grouped.past.length === 0 ? (
         <Card className="border-dashed border-[#d6e1eb]">
@@ -379,53 +424,93 @@ export default function ApplicantApplicationsPage() {
       </Dialog>
 
       <Dialog open={!!viewInterviewApp} onOpenChange={() => setViewInterviewApp(null)}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-2xl bg-white overflow-y-auto max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Interview Scheduled</DialogTitle>
-            <DialogDescription>An employer has scheduled an interview for your application.</DialogDescription>
+            <DialogTitle>Interview details</DialogTitle>
+            <DialogDescription>
+              Review your schedule and prepare the documents and items you need before the interview.
+            </DialogDescription>
           </DialogHeader>
           {viewInterviewApp && (
-            <div className="space-y-5 mt-2">
-              <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Job Position</p>
-                <p className="text-base font-semibold text-foreground">{viewInterviewApp.title || viewInterviewApp.position}</p>
-                <p className="text-sm text-muted-foreground">{viewInterviewApp.employerName}</p>
+            <div className="mt-2 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Job position</p>
+                  <p className="text-base font-semibold text-foreground">{viewInterviewApp.title || viewInterviewApp.position}</p>
+                  <p className="text-sm text-muted-foreground">{viewInterviewApp.employerName}</p>
+                  <p className="text-sm text-muted-foreground">{viewInterviewApp.location}</p>
+                </div>
+
+                {viewInterviewApp.interviewDate ? (
+                  <InterviewSummaryCard
+                    employerName={viewInterviewApp.employerName}
+                    employerContactName={viewInterviewApp.employerContactName}
+                    position={viewInterviewApp.title || viewInterviewApp.position}
+                    interviewDate={viewInterviewApp.interviewDate}
+                    interviewTime={viewInterviewApp.interviewTime}
+                    location={viewInterviewApp.interviewLocation}
+                    contact={
+                      viewInterviewApp.employerPhone
+                        ? formatPhoneDisplay(viewInterviewApp.employerPhone)
+                        : null
+                    }
+                    contactLabel="Employer phone"
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
+                    <p className="text-sm text-muted-foreground">Interview details are being finalized. Check back soon.</p>
+                  </div>
+                )}
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {buildTelLink(viewInterviewApp.employerPhone) ? (
+                    <Button asChild variant="outline" className="w-full gap-2">
+                      <a href={buildTelLink(viewInterviewApp.employerPhone)}>
+                        <Phone className="h-4 w-4" />
+                        Call employer
+                      </a>
+                    </Button>
+                  ) : null}
+                  {buildSmsLink(viewInterviewApp.employerPhone) ? (
+                    <Button asChild variant="outline" className="w-full gap-2">
+                      <a
+                        href={buildSmsLink(
+                          viewInterviewApp.employerPhone,
+                          `Hello ${viewInterviewApp.employerContactName || viewInterviewApp.employerName}, this is regarding my interview for ${viewInterviewApp.title || viewInterviewApp.position}.`,
+                        )}
+                      >
+                        <Send className="h-4 w-4" />
+                        Text employer
+                      </a>
+                    </Button>
+                  ) : null}
+                  {buildMailtoLink(
+                    viewInterviewApp.employerEmail,
+                    `Interview for ${viewInterviewApp.title || viewInterviewApp.position}`,
+                    `Hello ${viewInterviewApp.employerContactName || viewInterviewApp.employerName},\n\nI am writing about my scheduled interview for the ${viewInterviewApp.title || viewInterviewApp.position} role.`,
+                  ) ? (
+                    <Button asChild variant="secondary" className="w-full gap-2 sm:col-span-2">
+                      <a
+                        href={buildMailtoLink(
+                          viewInterviewApp.employerEmail,
+                          `Interview for ${viewInterviewApp.title || viewInterviewApp.position}`,
+                          `Hello ${viewInterviewApp.employerContactName || viewInterviewApp.employerName},\n\nI am writing about my scheduled interview for the ${viewInterviewApp.title || viewInterviewApp.position} role.`,
+                        )}
+                      >
+                        <Mail className="h-4 w-4" />
+                        Email employer
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+                {!viewInterviewApp.employerPhone && !viewInterviewApp.employerEmail ? (
+                  <p className="text-sm text-muted-foreground">
+                    Employer contact details are not available yet. Please check back later or visit the interview location on schedule.
+                  </p>
+                ) : null}
               </div>
-              {viewInterviewApp.interviewDate ? (
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-cyan-500/20 bg-cyan-50/50 p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0"><Calendar className="h-4 w-4 text-cyan-600" /></div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{format(new Date(viewInterviewApp.interviewDate), "EEEE, MMMM d, yyyy")}</p>
-                        <p className="text-xs text-muted-foreground">Interview Date</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0"><Clock className="h-4 w-4 text-cyan-600" /></div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{viewInterviewApp.interviewTime}</p>
-                        <p className="text-xs text-muted-foreground">Interview Time</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0"><MapPinned className="h-4 w-4 text-cyan-600" /></div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{viewInterviewApp.interviewLocation || "Barangay 634 Hall"}</p>
-                        <p className="text-xs text-muted-foreground">Location</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground"><Phone className="h-4 w-4" />{viewInterviewApp.contact || "Not provided"}</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-center">
-                  <p className="text-sm text-muted-foreground">Interview details are being finalized. Check back soon.</p>
-                </div>
-              )}
+
+              <InterviewGuidancePanel variant="applicant" />
             </div>
           )}
           <DialogFooter className="pt-4">
@@ -473,10 +558,18 @@ function ApplicationCard({
   const status = statusConfig[application.status as keyof typeof statusConfig];
   const canEdit = ["pending", "reviewing"].includes(application.status);
   const isForInterview = application.status === "for_interview";
+  const isHired = application.status === "hired";
+  const isRejected = application.status === "rejected";
+
+  const headerClass = isHired
+    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-[#2f6fa4]"
+    : isRejected
+      ? "bg-gradient-to-r from-rose-600 via-orange-600 to-[#8b4f4f]"
+      : "bg-gradient-to-r from-[#2f5e8f] to-[#214b74]";
 
   return (
-    <Card className="overflow-hidden hover:shadow-[0_20px_40px_rgba(37,91,142,0.12)] transition-all hover:-translate-y-1">
-      <CardHeader className="bg-gradient-to-r from-[#2f5e8f] to-[#214b74] p-6 text-white">
+    <Card className={`overflow-hidden transition-all hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(37,91,142,0.12)] ${isHired ? "ring-2 ring-emerald-200" : isRejected ? "ring-1 ring-rose-100" : ""}`}>
+      <CardHeader className={`${headerClass} p-6 text-white`}>
         <div className="flex items-start justify-between">
           <div>
             <h4 className="text-xl font-bold">{application.title || application.position}</h4>
@@ -496,6 +589,16 @@ function ApplicationCard({
         </div>
       </CardHeader>
       <CardContent className="p-6 space-y-4">
+        {isHired ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Congratulations! The employer selected you for this role. Check your notifications and email for next steps.
+          </div>
+        ) : null}
+        {isRejected ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            This role was not selected this time. New opportunities are posted regularly on Barangay 634.
+          </div>
+        ) : null}
         <div className="text-sm text-[#506274] leading-relaxed">{application.introduction?.slice(0, 150)}...</div>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-[#6d8195]" /><span>{application.shiftPreference || application.availability}</span></div>

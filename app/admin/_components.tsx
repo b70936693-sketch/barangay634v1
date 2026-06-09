@@ -72,6 +72,56 @@ export function StatusBadge({
   );
 }
 
+export function ListPagination({
+  currentPage,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  if (totalItems === 0) {
+    return null;
+  }
+
+  const start = (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-[#e8eff6] pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-sm text-[#7b8ca0]">
+        Showing {start}–{end} of {totalItems}
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="rounded-full border border-[#dbe5ef] px-3 py-1.5 text-sm font-medium text-[#506274] transition hover:border-[#2f6fa4] hover:text-[#2f6fa4] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span className="px-2 text-xs font-medium text-[#9aa9ba]">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="rounded-full border border-[#dbe5ef] px-3 py-1.5 text-sm font-medium text-[#506274] transition hover:border-[#2f6fa4] hover:text-[#2f6fa4] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ActionButton({
   label,
   onClickAction,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSessionSafe, supabase } from "@/lib/supabase";
+import { requestPasswordReset, resolvePortalSessionRedirect, signInToPortal } from "@/lib/client-portal-sign-in";
 
 type Role = "applicant" | "employer" | "admin";
 
@@ -60,6 +60,17 @@ export default function SignInPage() {
     window.localStorage.removeItem("jobserve_pending_email");
   }, []);
 
+  useEffect(() => {
+    const redirectIfSignedIn = async () => {
+      const destination = await resolvePortalSessionRedirect();
+      if (destination) {
+        router.replace(destination);
+      }
+    };
+
+    void redirectIfSignedIn();
+  }, [router]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -77,21 +88,15 @@ export default function SignInPage() {
     }
 
     setIsResettingPassword(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
-      });
+    const result = await requestPasswordReset(email);
+    setIsResettingPassword(false);
 
-      if (error) {
-        setErrorMessage(error.message);
-      } else {
-        setSuccessMessage("Password reset link has been sent to your email.");
-      }
-    } catch (err) {
-      setErrorMessage("An unexpected error occurred. Please try again.");
-    } finally {
-      setIsResettingPassword(false);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
     }
+
+    setSuccessMessage("Password reset link has been sent to your email.");
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -100,99 +105,15 @@ export default function SignInPage() {
     setSuccessMessage(null);
     setIsSubmitting(true);
 
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem("jobserve_pending_role");
-      window.localStorage.removeItem("jobserve_pending_role");
-      window.sessionStorage.setItem("jobserve_pending_email", email);
-      window.localStorage.setItem("jobserve_pending_email", email);
-    }
-
-
-    try {
-      const currentSession = await getSessionSafe();
-      if (currentSession.data?.session?.user?.email?.toLowerCase() !== email.toLowerCase()) {
-        await supabase.auth.signOut();
-      }
-    } catch (error) {
-      console.warn("Unable to clear a stale session before sign in:", error);
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
+    const result = await signInToPortal(email, password);
     setIsSubmitting(false);
 
-    if (error) {
-      const message = error.message?.toLowerCase() ?? "";
-      if (message.includes("confirm") || message.includes("verified") || message.includes("verification")) {
-        setErrorMessage(
-          "Your email is not verified yet. Please check your inbox or spam folder for the confirmation link before signing in."
-        );
-      } else {
-        setErrorMessage(error.message || "Unable to sign in. Please try again.");
-      }
+    if (!result.ok) {
+      setErrorMessage(result.error);
       return;
     }
 
-    if (data?.session) {
-
-
-      const expectedToken = data.session.access_token;
-      const waitForSession = async () => {
-        const start = Date.now();
-        while (Date.now() - start < 5000) {
-          const sessionResult = await getSessionSafe();
-          const session = sessionResult.data?.session;
-          if (session?.access_token === expectedToken) {
-            return session;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 200));
-        }
-        return null;
-      };
-
-      const activeSession = (await waitForSession()) ?? data.session;
-      const bearerToken = activeSession?.access_token ?? expectedToken;
-
-      let authResponse: Response | null = null;
-
-      try {
-        authResponse = await fetch("/api/portal/auth", {
-          credentials: "include",
-          headers: { Authorization: `Bearer ${bearerToken}` },
-        });
-      } catch (error) {
-        console.error("Unable to validate sign-in session:", error);
-        await supabase.auth.signOut();
-        setErrorMessage("We could not validate your session right now. Please try again.");
-        return;
-      }
-
-      if (!authResponse || !authResponse.ok) {
-        await supabase.auth.signOut();
-        setErrorMessage(
-          "Unable to validate your account session. Please try again or contact support if the problem persists."
-        );
-        return;
-      }
-
-      const authResult = await authResponse.json();
-      if (!authResult?.isApproved) {
-        await supabase.auth.signOut();
-        setErrorMessage("Your account is waiting for admin verification. You can sign in only after the admin approves your documents.");
-        return;
-      }
-
-      router.push(redirectUrl);
-      return;
-    }
-
-
-
-    setErrorMessage("Sign in successful. Redirecting...");
-    await getSessionSafe();
-    router.push(redirectUrl);
-
-
+    router.push(result.redirectTo || redirectUrl);
   };
 
   return (

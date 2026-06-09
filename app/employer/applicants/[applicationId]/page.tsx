@@ -1,14 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, Mail, Phone, FileText } from "lucide-react";
+import { ArrowLeft, Mail, Phone } from "lucide-react";
 
 import { readDatabase, withDerivedData } from "@/lib/backend/store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { getDocumentHref, getDocumentName } from "@/app/employer/lib/portal-actions";
+import { ApplicantDocumentsPreview } from "@/app/employer/applicants/components/ApplicantDocumentsPreview";
+import { ApplicantAvatar } from "@/components/applicant-avatar";
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -54,10 +55,13 @@ export default async function EmployerApplicantDetailsPage({ params }: { params:
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card>
           <CardContent className="space-y-4 p-6">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">Applicant</p>
-              <h3 className="text-2xl font-semibold">{applicant.fullName}</h3>
-              {getStatusBadge(applicant.status)}
+            <div className="flex items-start gap-4">
+              <ApplicantAvatar name={applicant.fullName} photoUrl={(applicant as { photoUrl?: string | null }).photoUrl} size="xl" />
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-muted-foreground">Applicant</p>
+                <h3 className="text-2xl font-semibold">{applicant.fullName}</h3>
+                {getStatusBadge(applicant.status)}
+              </div>
             </div>
 
             <Separator />
@@ -106,34 +110,9 @@ export default async function EmployerApplicantDetailsPage({ params }: { params:
               </div>
               <div className="rounded-2xl border border-border bg-card p-4">
                 <p className="text-sm text-muted-foreground">Documents submitted</p>
-                <div className="mt-3 space-y-2">
-                  {applicant.documents?.length ? (
-                    applicant.documents.map((doc: unknown, index: number) => {
-                      const documentHref = getDocumentHref(doc);
-
-                      return (
-                        <div key={`${getDocumentName(doc)}-${index}`} className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <p className="font-medium">{getDocumentName(doc)}</p>
-                          </div>
-                          {documentHref ? (
-                            <Button asChild variant="outline" size="sm">
-                              <a href={documentHref} target="_blank" rel="noreferrer">
-                                View
-                              </a>
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" disabled>
-                              Unavailable
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No documents attached.</p>
-                  )}
+                <p className="mt-1 text-xs text-muted-foreground">Click a file to preview it on the right.</p>
+                <div className="mt-4">
+                  <ApplicantDocumentsPreview documents={applicant.documents ?? []} />
                 </div>
               </div>
             </div>

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { getMailtoHref } from '@/app/employer/lib/portal-actions';
+import { ApplicantAvatar } from '@/components/applicant-avatar';
 
 interface HiredApplicant {
   id: string;
@@ -21,6 +22,7 @@ interface HiredApplicant {
   hiredDate?: string;
   contact?: string;
   email?: string;
+  photoUrl?: string | null;
 }
 
 export default function Hired() {
@@ -99,9 +101,7 @@ export default function Hired() {
                     <TableRow key={employee.id}>
                       <TableCell className="font-medium pl-6">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                            {(employee.fullName || '?').charAt(0)}
-                          </div>
+                          <ApplicantAvatar name={employee.fullName} photoUrl={employee.photoUrl} size="sm" />
                           {employee.fullName}
                         </div>
                       </TableCell>

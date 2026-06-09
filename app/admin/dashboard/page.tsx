@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
 import {
@@ -18,7 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { EmptyState, StatusBadge } from "../_components";
+import { EmptyState, ListPagination, StatusBadge } from "../_components";
 import { useAdminPortal } from "../api-client-react";
 import type { AuditLogRecord, VerificationRecord } from "@/lib/backend/types";
 
@@ -214,11 +214,27 @@ function PulseCard({
   );
 }
 
+const ACTIVITY_PAGE_SIZE = 5;
+
 export default function AdminDashboardPage() {
   const { data, isLoading } = useAdminPortal();
+  const [activityPage, setActivityPage] = useState(1);
 
   const summary = data?.adminSummary;
-  const auditLogs = ((data?.auditLogs as AuditLogRecord[] | undefined) ?? []).slice(0, 8);
+  const allAuditLogs = useMemo(() => {
+    const logs = ((data?.auditLogs as AuditLogRecord[] | undefined) ?? []);
+    return [...logs].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  }, [data?.auditLogs]);
+
+  const activityTotalPages = Math.max(1, Math.ceil(allAuditLogs.length / ACTIVITY_PAGE_SIZE));
+  const auditLogs = allAuditLogs.slice(
+    (activityPage - 1) * ACTIVITY_PAGE_SIZE,
+    activityPage * ACTIVITY_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setActivityPage((page) => Math.min(page, activityTotalPages));
+  }, [activityTotalPages]);
   const pendingVerifications = ((data?.verifications as VerificationRecord[] | undefined) ?? [])
     .filter((item) => item.status === "pending")
     .slice(0, 5);
@@ -323,6 +339,12 @@ export default function AdminDashboardPage() {
                 {auditLogs.map((log, index) => (
                   <ActivityTimelineItem key={log.id} log={log} isLast={index === auditLogs.length - 1} />
                 ))}
+                <ListPagination
+                  currentPage={activityPage}
+                  totalItems={allAuditLogs.length}
+                  pageSize={ACTIVITY_PAGE_SIZE}
+                  onPageChange={setActivityPage}
+                />
               </div>
             ) : (
               <EmptyState

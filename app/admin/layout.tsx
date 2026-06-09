@@ -212,8 +212,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <AdminStat title="Pending Verifications" value={summary?.pendingVerifications ?? 0} icon={BadgeCheck} />
-              <AdminStat title="Active Jobs" value={summary?.activeJobs ?? 0} icon={Briefcase} />
-              <AdminStat title="Security Alerts" value={summary?.securityAlerts ?? 0} icon={ShieldAlert} />
+              <AdminStat title="Pending Job Posts" value={summary?.pendingJobPosts ?? 0} icon={Briefcase} />
+              <AdminStat title="Live Job Posts" value={summary?.activeJobs ?? 0} icon={Briefcase} />
               <AdminStat title="Applications" value={summary?.totalApplications ?? 0} icon={Users} />
             </div>
           </div>
@@ -233,7 +233,12 @@ const statAccents: Record<string, { glow: string; iconWrap: string; icon: string
     iconWrap: "bg-amber-50 border-amber-100",
     icon: "text-amber-600",
   },
-  "Active Jobs": {
+  "Pending Job Posts": {
+    glow: "bg-amber-300",
+    iconWrap: "bg-amber-50 border-amber-100",
+    icon: "text-amber-600",
+  },
+  "Live Job Posts": {
     glow: "bg-blue-300",
     iconWrap: "bg-blue-50 border-blue-100",
     icon: "text-blue-600",

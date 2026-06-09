@@ -11,14 +11,19 @@ export type ApplicantRecord = {
   position?: string;
 };
 
-export function getApplicantName(applicant: ApplicantRecord) {
+export function getApplicantName(applicant?: ApplicantRecord | null) {
+  if (!applicant) return "";
   return applicant.fullName ?? applicant.full_name ?? "";
 }
 
-export function getApplicantAppliedDate(applicant: ApplicantRecord) {
+export function getApplicantAppliedDate(applicant?: ApplicantRecord | null) {
+  if (!applicant) return "";
   return applicant.appliedDate ?? applicant.applied_date ?? "";
 }
 
-export function getApplicantContact(applicant: ApplicantRecord) {
+export function getApplicantContact(applicant?: ApplicantRecord | null) {
+  if (!applicant) return "";
   return applicant.contact ?? applicant.phone ?? "";
 }
+
+export { buildSmsLink, buildTelLink, formatPhoneDisplay } from "@/lib/phone-links";

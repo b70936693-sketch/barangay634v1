@@ -42,6 +42,9 @@ function usePortal() {
   return useQuery({
     queryKey: ["admin-portal"],
     queryFn: () => fetchJson<any>("/api/portal/admin"),
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -74,6 +77,24 @@ export function useAdminAction() {
 
       // For non-job_post mutations, keep existing behavior (if any was needed later).
       // Current codebase relies on invalidation for admin snapshot, so do the same.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-portal"] }),
+        queryClient.invalidateQueries({ queryKey: ["portal"] }),
+      ]);
+    },
+  });
+}
+
+export function useAdminJobPostAction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { jobId: string; status: string; rejectionNotes?: string }) =>
+      fetchJson("/api/portal/job-posts/admin", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-portal"] }),
         queryClient.invalidateQueries({ queryKey: ["portal"] }),

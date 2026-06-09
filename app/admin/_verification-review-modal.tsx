@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
+import { ApplicantAvatar } from "@/components/applicant-avatar";
+import { EmployerAvatar } from "@/components/employer-avatar";
 import { ActionButton, StatusBadge } from "./_components";
 import { useAdminAction } from "./api-client-react";
 import { getSessionSafe } from "@/lib/supabase";
@@ -69,7 +71,13 @@ export function VerificationReviewModal({
   subtitle,
   fields,
   verification,
+  actionType = "verification",
   employerId,
+  applicantUserId,
+  documentsLookupId,
+  imageUrl,
+  imageName,
+  imageKind,
 }: {
   open: boolean;
   onCloseAction: () => void;
@@ -77,7 +85,13 @@ export function VerificationReviewModal({
   subtitle: string;
   fields: Array<{ label: string; value: string }>;
   verification: VerificationSummary;
+  actionType?: "verification" | "employer" | "applicant";
   employerId?: string | null;
+  applicantUserId?: string | null;
+  documentsLookupId?: string | null;
+  imageUrl?: string | null;
+  imageName?: string | null;
+  imageKind?: "employer" | "applicant";
 }) {
   const action = useAdminAction();
   const [activeDocumentPath, setActiveDocumentPath] = useState<string | null>(null);
@@ -95,12 +109,14 @@ export function VerificationReviewModal({
     void getToken();
   }, []);
 
+  const lookupId = documentsLookupId ?? verification.id;
+
   const documentsQuery = useQuery({
-    queryKey: ["admin-verification-documents", verification.id],
-    enabled: open && Boolean(verification.id),
+    queryKey: ["admin-verification-documents", lookupId],
+    enabled: open && Boolean(lookupId),
     queryFn: async () => {
       const res = await fetch(
-        verification.id ? `/api/portal/admin/verifications/${verification.id}` : `/api/portal/admin/verifications/invalid`,
+        lookupId ? `/api/portal/admin/verifications/${lookupId}` : `/api/portal/admin/verifications/invalid`,
         {
           method: "GET",
           headers: {
@@ -124,7 +140,13 @@ export function VerificationReviewModal({
 
   const reviewStatus = verification.status ?? "pending";
   const isPending = reviewStatus === "pending";
-  const canReview = isPending && (Boolean(verification.id) || Boolean(employerId));
+  const canReview =
+    isPending &&
+    (actionType === "verification"
+      ? Boolean(verification.id)
+      : actionType === "employer"
+        ? Boolean(employerId)
+        : Boolean(applicantUserId));
   const documents = documentsQuery.data ?? [];
   const documentError = documentsQuery.error instanceof Error ? documentsQuery.error.message : null;
   const actionError = action.error instanceof Error ? action.error.message : null;
@@ -138,12 +160,16 @@ export function VerificationReviewModal({
   }, [documents]);
 
   const handleReview = (status: "approved" | "rejected") => {
-    if (verification.id) {
+    if (actionType === "verification" && verification.id) {
       action.mutate({ type: "verification", id: verification.id, status }, { onSuccess: onCloseAction });
       return;
     }
-    if (employerId) {
+    if (actionType === "employer" && employerId) {
       action.mutate({ type: "employer", id: employerId, status }, { onSuccess: onCloseAction });
+      return;
+    }
+    if (actionType === "applicant" && applicantUserId) {
+      action.mutate({ type: "applicant", id: applicantUserId, status }, { onSuccess: onCloseAction });
     }
   };
 
@@ -169,8 +195,17 @@ export function VerificationReviewModal({
                 </span>
               ) : null}
             </div>
-            <DialogTitle className="text-2xl font-bold leading-tight text-white sm:text-3xl">{title}</DialogTitle>
-            <DialogDescription className="text-sm text-white/80">{subtitle}</DialogDescription>
+            <div className="flex items-start gap-4">
+              {imageKind === "employer" ? (
+                <EmployerAvatar name={imageName ?? title} logoUrl={imageUrl} size="lg" className="border-white/30 bg-white/10 text-white" />
+              ) : imageKind === "applicant" ? (
+                <ApplicantAvatar name={imageName ?? title} photoUrl={imageUrl} size="lg" className="border-white/30 bg-white/10 text-white" />
+              ) : null}
+              <div>
+                <DialogTitle className="text-2xl font-bold leading-tight text-white sm:text-3xl">{title}</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-white/80">{subtitle}</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
         </div>
 
@@ -231,12 +266,12 @@ export function VerificationReviewModal({
 
             {documentsQuery.isLoading ? <p className="mt-3 text-sm text-[#7b8ca0]">Loading document links...</p> : null}
             {documentError ? <p className="mt-3 text-sm text-red-600">{documentError}</p> : null}
-            {!verification.id ? (
+            {!lookupId ? (
               <p className="mt-3 text-sm text-[#7b8ca0]">
                 No verification submission is attached yet. You can still approve or reject based on the account details above.
               </p>
             ) : null}
-            {!documentsQuery.isLoading && !documentError && verification.id && documents.length === 0 ? (
+            {!documentsQuery.isLoading && !documentError && lookupId && documents.length === 0 ? (
               <p className="mt-3 text-sm text-[#7b8ca0]">No uploaded documents were found for this submission.</p>
             ) : null}
 

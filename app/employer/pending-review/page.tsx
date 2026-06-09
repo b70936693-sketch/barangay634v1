@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useListPendingApplicants, useUpdateApplicantStatus } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { getDocumentHref, getDocumentName } from "@/app/employer/lib/portal-actions";
+import { InterviewGuidancePanel, InterviewSummaryCard } from "@/lib/interview-guidance";
+import { ApplicationDecisionDialog } from "@/lib/application-decision-dialog";
+import { ApplicantAvatar } from "@/components/applicant-avatar";
 
 type PendingApplicant = {
   id: string;
@@ -29,6 +32,7 @@ type PendingApplicant = {
   shiftPreference?: string;
   documents?: unknown[];
   status: "pending" | "reviewing";
+  photoUrl?: string | null;
 };
 
 type ReviewMode = "review" | "schedule";
@@ -91,8 +95,8 @@ export default function PendingReviewPage() {
       applicantId: rejectApplicant.id,
       applicantName: rejectApplicant.fullName,
       status: "rejected",
+      closeOnSuccess: true,
     });
-    closeRejectConfirm();
   };
 
   const openPreview = (doc: unknown) => {
@@ -113,6 +117,7 @@ export default function PendingReviewPage() {
     interviewDate?: string;
     interviewTime?: string;
     location?: string;
+    closeOnSuccess?: boolean;
   }) => {
     updateStatus.mutate(
       {
@@ -125,15 +130,24 @@ export default function PendingReviewPage() {
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (response: any) => {
+          const emailSent = response?.notification?.emailSent;
           toast({
             title: "Applicant updated",
             description:
               payload.status === "for_interview"
                 ? `${payload.applicantName} has been moved to For Interview.`
-                : `${payload.applicantName} has been marked as ${payload.status}.`,
+                : payload.status === "rejected"
+                  ? emailSent
+                    ? `${payload.applicantName} was not selected and notified by email.`
+                    : `${payload.applicantName} was not selected. In-app notification saved.`
+                  : `${payload.applicantName} has been marked as ${payload.status}.`,
           });
-          closeApplicantModal();
+          if (payload.closeOnSuccess) {
+            closeRejectConfirm();
+          } else {
+            closeApplicantModal();
+          }
         },
         onError: (error: any) => {
           toast({
@@ -207,10 +221,13 @@ export default function PendingReviewPage() {
                         <TableCell className="font-medium align-top pt-5">
                           <button
                             type="button"
-                            className="text-left"
+                            className="flex items-start gap-3 text-left"
                             onClick={() => openApplicantModal(application, "review")}
                           >
+                            <ApplicantAvatar name={application.fullName} photoUrl={application.photoUrl} size="sm" />
+                            <div>
                             <div className="font-semibold text-[#2f5e8f] hover:underline">{application.fullName}</div>
+                            </div>
                           </button>
                           <div className="text-sm text-muted-foreground mt-1 max-w-[220px] leading-5">
                             {application.introduction?.slice(0, 100) || "No introduction provided."}
@@ -377,6 +394,17 @@ export default function PendingReviewPage() {
                         <label className="text-sm font-medium text-foreground">Location</label>
                         <Input value={interviewLocation} onChange={(event) => setInterviewLocation(event.target.value)} />
                       </div>
+                      {interviewDate && interviewTime ? (
+                        <InterviewSummaryCard
+                          applicantName={selectedApplicant.fullName}
+                          position={selectedApplicant.title ?? selectedApplicant.position}
+                          interviewDate={interviewDate}
+                          interviewTime={interviewTime}
+                          location={interviewLocation}
+                          contact={selectedApplicant.contact}
+                        />
+                      ) : null}
+                      <InterviewGuidancePanel variant="employer" />
                     </div>
                   ) : (
                     <div className="mt-4 space-y-3">
@@ -519,30 +547,21 @@ export default function PendingReviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Confirmation Dialog */}
-      <Dialog open={Boolean(rejectApplicant)} onOpenChange={(open) => { if (!open) closeRejectConfirm(); }}>
-        <DialogContent className="sm:max-w-[425px] bg-white">
-          <DialogHeader>
-            <DialogTitle>Reject Applicant</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject {rejectApplicant?.fullName}? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end pt-4">
-            <Button type="button" variant="outline" onClick={closeRejectConfirm}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={confirmAndReject}
-              disabled={updateStatus.isPending}
-            >
-              {updateStatus.isPending ? "Rejecting..." : "Yes, Reject"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {rejectApplicant ? (
+        <ApplicationDecisionDialog
+          open={Boolean(rejectApplicant)}
+          onOpenChange={(open) => {
+            if (!open) closeRejectConfirm();
+          }}
+          applicantName={rejectApplicant.fullName}
+          applicantEmail={rejectApplicant.email}
+          jobTitle={rejectApplicant.title || rejectApplicant.position}
+          employerName={rejectApplicant.employerName || "Your company"}
+          decision="rejected"
+          isSubmitting={updateStatus.isPending}
+          onConfirm={confirmAndReject}
+        />
+      ) : null}
     </>
   );
 }

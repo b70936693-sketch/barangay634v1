@@ -7,6 +7,20 @@ import path from "node:path";
 import { PrismaClient, VerificationType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { buildAdminVerificationQueue } from "@/lib/admin-verification-queue";
+import {
+  ApplicantProfileMeta,
+  getApplicantPhotoUrl,
+  parseApplicantProfileMeta,
+  resolveApplicantProfileForApplication,
+  serializeApplicantProfileMeta,
+} from "@/lib/applicant-profile-meta";
+import {
+  EmployerProfileMeta,
+  getEmployerLogoUrl,
+  parseEmployerProfileMeta,
+  serializeEmployerProfileMeta,
+} from "@/lib/employer-profile-meta";
 import { seedDatabase } from "./seed";
 import { AlertRecord, ApplicationDocument, ApplicationRecord, ApplicantProfile, AuditLogRecord, EmployerProfile, InterviewRecord, JobPost, JobPostStatus, PortalDatabase, ReportRecord, ServiceRecord, UserRecord, VerificationRecord } from "./types";
 
@@ -473,20 +487,20 @@ function toSupabaseUser(user: UserRecord) {
 function toSupabaseEmployer(profile: EmployerProfile) {
   return {
     id: profile.id,
-    user_id: profile.userId,
+    userId: profile.userId,
     company_name: profile.companyName,
     contact_person: profile.contactPerson,
     headline: profile.headline,
     location: profile.location,
     verified: profile.verified,
-    business_type: profile.businessType,
+    businessType: profile.businessType,
   };
 }
 
 function toSupabaseApplicant(profile: ApplicantProfile) {
   return {
     id: profile.id,
-    user_id: profile.userId,
+    userId: profile.userId,
     full_name: profile.fullName,
     preferred_name: profile.preferredName,
     email: profile.email,
@@ -556,6 +570,81 @@ function toSupabaseInterview(interview: InterviewRecord) {
     interview_time: interview.interviewTime,
     location: interview.location ?? "Barangay 634 Hall",
   };
+}
+
+async function syncSupabaseInterviews(db: PortalDatabase) {
+  if (!supabaseAdmin) return;
+
+  const keptInterviewIds = new Set(db.interviews.map((interview) => interview.id));
+  const trackedApplicationIds = new Set(db.applications.map((application) => application.id));
+
+  const { data: remoteInterviews, error: readError } = await supabaseAdmin
+    .from("interviews")
+    .select("id, applicationId");
+
+  if (readError) {
+    // Legacy schemas may use snake_case; retry before failing the whole write.
+    const legacyRead = await supabaseAdmin.from("interviews").select("id, application_id");
+    if (legacyRead.error) {
+      throw new Error(`Failed to read interviews for sync: ${readError.message}`);
+    }
+    const staleInterviewIds = (legacyRead.data ?? [])
+      .filter((row) => {
+        const record = row as Record<string, unknown>;
+        const applicationId = record.application_id as string | undefined;
+        return (
+          Boolean(applicationId) &&
+          trackedApplicationIds.has(applicationId!) &&
+          !keptInterviewIds.has(record.id as string)
+        );
+      })
+      .map((row) => (row as Record<string, unknown>).id as string);
+
+    if (staleInterviewIds.length) {
+      const { error: deleteError } = await supabaseAdmin.from("interviews").delete().in("id", staleInterviewIds);
+      if (deleteError) {
+        throw new Error(`Failed to delete stale interviews: ${deleteError.message}`);
+      }
+    }
+
+    if (db.interviews.length) {
+      const { error: interviewsError } = await supabaseAdmin
+        .from("interviews")
+        .upsert(db.interviews.map(toSupabaseInterview), { onConflict: "id" });
+      if (interviewsError) {
+        throw new Error(`Failed to save interview: ${interviewsError.message}`);
+      }
+    }
+    return;
+  }
+
+  const staleInterviewIds = (remoteInterviews ?? [])
+    .filter((row) => {
+      const record = row as Record<string, unknown>;
+      const applicationId = record.applicationId as string | undefined;
+      return (
+        Boolean(applicationId) &&
+        trackedApplicationIds.has(applicationId!) &&
+        !keptInterviewIds.has(record.id as string)
+      );
+    })
+    .map((row) => (row as Record<string, unknown>).id as string);
+
+  if (staleInterviewIds.length) {
+    const { error: deleteError } = await supabaseAdmin.from("interviews").delete().in("id", staleInterviewIds);
+    if (deleteError) {
+      throw new Error(`Failed to delete stale interviews: ${deleteError.message}`);
+    }
+  }
+
+  if (db.interviews.length) {
+    const { error: interviewsError } = await supabaseAdmin
+      .from("interviews")
+      .upsert(db.interviews.map(toSupabaseInterview), { onConflict: "id" });
+    if (interviewsError) {
+      throw new Error(`Failed to save interview: ${interviewsError.message}`);
+    }
+  }
 }
 
 function toSupabaseVerification(record: VerificationRecord) {
@@ -730,11 +819,21 @@ export async function writeDatabase(db: PortalDatabase, safeMode = true) {
         }
 
         if (db.employerProfiles.length) {
-          await supabaseAdmin.from('employer_profiles').upsert(db.employerProfiles.map(toSupabaseEmployer), { onConflict: 'id' });
+          const { error: employerProfilesError } = await supabaseAdmin
+            .from("employer_profiles")
+            .upsert(db.employerProfiles.map(toSupabaseEmployer), { onConflict: "id" });
+          if (employerProfilesError) {
+            throw new Error(`Failed to save employer profiles: ${employerProfilesError.message}`);
+          }
         }
 
         if (db.applicantProfiles.length) {
-          await supabaseAdmin.from('applicant_profiles').upsert(db.applicantProfiles.map(toSupabaseApplicant), { onConflict: 'id' });
+          const { error: applicantProfilesError } = await supabaseAdmin
+            .from("applicant_profiles")
+            .upsert(db.applicantProfiles.map(toSupabaseApplicant), { onConflict: "id" });
+          if (applicantProfilesError) {
+            throw new Error(`Failed to save applicant profiles: ${applicantProfilesError.message}`);
+          }
         }
 
         if (db.verifications.length) {
@@ -754,13 +853,11 @@ export async function writeDatabase(db: PortalDatabase, safeMode = true) {
           }
         }
 
-        if (db.interviews.length) {
-          const { error: interviewsError } = await supabaseAdmin
-            .from('interviews')
-            .upsert(db.interviews.map(toSupabaseInterview), { onConflict: 'id' });
-          if (interviewsError) {
-            throw new Error(`Failed to save interview: ${interviewsError.message}`);
-          }
+        try {
+          await syncSupabaseInterviews(db);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error("writeDatabase: interview sync skipped:", message);
         }
 
         // CRITICAL: persist audit logs in Supabase safe mode, otherwise /admin/audit-logs shows empty.
@@ -1107,26 +1204,15 @@ export async function getOrCreateEmployerProfile(db: PortalDatabase, userId: str
         console.log('getOrCreateEmployerProfile: Supabase upsert result:', res.data);
       }
 
-      // Re-query to get canonical row (ensure user_id column populated)
+      // Re-query to get canonical row (ensure userId column populated)
       try {
         const check = await (supabaseAdmin as { from: (table: string) => any })
-          .from('employer_profiles')
-          .select('*')
-          .eq('user_id', userId)
+          .from("employer_profiles")
+          .select("*")
+          .eq("userId", userId)
           .single();
         if (check?.data) {
-          // Map Supabase row to local EmployerProfile shape
-          const row: any = check.data;
-          return {
-            id: row.id,
-            userId: row.user_id,
-            companyName: row.company_name ?? newProfile.companyName,
-            contactPerson: row.contact_person ?? newProfile.contactPerson,
-            headline: row.headline ?? newProfile.headline,
-            location: row.location ?? newProfile.location,
-            verified: row.verified ?? !!newProfile.verified,
-            businessType: row.business_type ?? newProfile.businessType,
-          } as EmployerProfile;
+          return mapEmployerRow(check.data);
         }
       } catch (checkErr) {
         console.warn('getOrCreateEmployerProfile: Supabase verify query failed:', checkErr);
@@ -1186,10 +1272,9 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
     );
   }
 
-  // Applicants should only be able to see admin-verified (approved) job posts.
-  // Admin verification workflow uses `status` (e.g. pending/closed/rejected -> not visible to applicants).
+  // Applicants only see job posts that an admin has explicitly approved (active + publishedAt).
   if (currentUser?.role === "applicant") {
-    jobPostsBase = jobPostsBase.filter((post) => post.status === "active");
+    jobPostsBase = jobPostsBase.filter((post) => post.status === "active" && Boolean(post.publishedAt));
   }
 
   const jobPosts = jobPostsBase.map((post) => {
@@ -1203,6 +1288,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
         contactPerson: postEmployer?.contactPerson ?? "Employer Contact",
         location: postEmployer?.location ?? "Barangay 634",
         employerVerified: postEmployer?.verified ?? false,
+        employerLogoUrl: getEmployerLogoUrl(postEmployer?.headline),
       };
     })
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -1220,9 +1306,21 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
     .map((application) => {
       const post = jobPosts.find((job) => job.id === application.jobPostId);
       const interview = db.interviews.find((i) => i.applicationId === application.id);
+      const postEmployer = post
+        ? db.employerProfiles.find((profile) => profile.id === post.employerId)
+        : undefined;
+      const employerUser = postEmployer
+        ? db.users.find((user) => user.id === postEmployer.userId)
+        : undefined;
+      const applicantProfile = resolveApplicantProfileForApplication(db.applicantProfiles, application);
+
       return {
         ...application,
+        photoUrl: getApplicantPhotoUrl(applicantProfile?.headline),
         employerName: post?.companyName ?? "Barangay Employer",
+        employerContactName: post?.contactPerson ?? postEmployer?.contactPerson ?? "Employer Contact",
+        employerPhone: employerUser?.phone ?? "",
+        employerEmail: employerUser?.email ?? "",
         title: post?.title ?? application.position,
         location: post?.location ?? "Barangay 634",
         interviewDate: interview?.interviewDate ?? null,
@@ -1237,11 +1335,16 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
     .map((application) => ({ ...application, hiredDate: application.appliedDate }));
 
   const interviews = db.interviews
-    .filter((interview) =>
-      currentUser?.role === "employer"
-        ? applications.some((application) => application.id === interview.applicationId)
-        : true,
-    )
+    .filter((interview) => {
+      const application = applications.find((item) => item.id === interview.applicationId);
+      if (!application || application.status !== "for_interview") {
+        return false;
+      }
+
+      return currentUser?.role === "employer"
+        ? applications.some((scopedApplication) => scopedApplication.id === interview.applicationId)
+        : true;
+    })
     .map((interview) => {
       const application = applications.find((item) => item.id === interview.applicationId);
       const post = application ? jobPosts.find((job) => job.id === application.jobPostId) : null;
@@ -1250,6 +1353,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
         ...interview,
         applicantEmail: application?.email ?? "",
         applicantDocuments: application?.documents ?? [],
+        photoUrl: application?.photoUrl ?? null,
         jobTitle: post?.title ?? application?.position ?? interview.position,
         employerName: post?.companyName ?? "Barangay Employer",
         location: interview.location || "Barangay 634 Hall",
@@ -1268,7 +1372,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
     activePosts: jobPosts.filter((post) => post.status === "active").length,
     totalApplicants: applications.length,
     pendingReview: applications.filter((application) => application.status === "pending" || application.status === "reviewing").length,
-    forInterview: interviews.length,
+    forInterview: applications.filter((application) => application.status === "for_interview").length,
     hired: hiredApplicants.length,
   };
 
@@ -1284,7 +1388,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
   const availableSwipeJobs = currentApplicantProfile
     ? jobPosts
         .filter((post) => {
-          if (post.status !== "active") return false;
+          if (post.status !== "active" || !post.publishedAt) return false;
           const postEmployer = db.employerProfiles.find((profile) => profile.id === post.employerId);
           return postEmployer?.verified === true;
         })
@@ -1294,24 +1398,44 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
         }))
     : jobPosts;
 
+  const adminVerifications = buildAdminVerificationQueue(db);
+
   const adminSummary = {
-    pendingVerifications: db.verifications.filter((item) => item.status === "pending").length,
-    activeJobs: jobPosts.filter((item) => item.status === "active").length,
+    pendingVerifications: adminVerifications.filter((item) => item.status === "pending").length,
+    pendingJobPosts: db.jobPosts.filter(
+      (item) => item.status === "pending" || (item.status === "active" && !item.publishedAt),
+    ).length,
+    activeJobs: db.jobPosts.filter((item) => item.status === "active" && Boolean(item.publishedAt)).length,
     securityAlerts: db.alerts.filter((item) => item.status !== "resolved").length,
     totalApplications: applications.length,
     verifiedEmployers: db.employerProfiles.filter((item) => item.verified).length,
   };
 
-  const allUsers = db.users.map((user) => ({
-    ...user,
-    applications:
-      user.role === "applicant"
-        ? applications.filter((application) => application.email === user.email).length
-        : undefined,
+  const applicantProfiles = db.applicantProfiles.map((profile) => ({
+    ...profile,
+    photoUrl: getApplicantPhotoUrl(profile.headline),
   }));
+
+  const allUsers = db.users.map((user) => {
+    const employerProfile = db.employerProfiles.find((profile) => profile.userId === user.id);
+    const applicantProfile =
+      applicantProfiles.find((profile) => profile.userId === user.id) ??
+      applicantProfiles.find((profile) => profile.email?.toLowerCase() === user.email?.toLowerCase());
+
+    return {
+      ...user,
+      photoUrl: user.role === "applicant" ? applicantProfile?.photoUrl ?? null : null,
+      logoUrl: user.role === "employer" ? getEmployerLogoUrl(employerProfile?.headline) : null,
+      applications:
+        user.role === "applicant"
+          ? applications.filter((application) => application.email === user.email).length
+          : undefined,
+    };
+  });
 
   const employers = db.employerProfiles.map((profile) => ({
     ...profile,
+    logoUrl: getEmployerLogoUrl(profile.headline),
     userStatus: db.users.find((user) => user.id === profile.userId)?.status ?? "pending",
     count_applications: applications.filter((application) => {
       const post = jobPosts.find((job) => job.id === application.jobPostId);
@@ -1330,7 +1454,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
   return {
     employerProfile: employer,
     applicantProfile,
-    applicantProfiles: db.applicantProfiles,
+    applicantProfiles,
     jobPosts,
     applications,
     hiredApplicants,
@@ -1341,6 +1465,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
     applicantApplications,
     availableSwipeJobs,
     adminSummary,
+    adminVerifications,
     verifications: db.verifications,
     reports: db.reports,
     alerts: db.alerts,
@@ -1448,7 +1573,9 @@ export function createApplication(
   db: PortalDatabase,
   input: Omit<ApplicationRecord, "id" | "appliedDate" | "status" | "position"> & { jobPostId: string }
 ) {
-  const post = db.jobPosts.find((item) => item.id === input.jobPostId && item.status === "active");
+  const post = db.jobPosts.find(
+    (item) => item.id === input.jobPostId && item.status === "active" && Boolean(item.publishedAt),
+  );
   if (!post) return null;
 
   const application: ApplicationRecord = {
@@ -1502,13 +1629,84 @@ export function updateApplicantProfile(db: PortalDatabase, payload: Partial<Port
 export function updateApplicantProfileByUserId(
   db: PortalDatabase,
   userId: string,
-  payload: Partial<PortalDatabase["applicantProfiles"][number]>
+  payload: Partial<PortalDatabase["applicantProfiles"][number]> & {
+    photoUrl?: string | null;
+  },
 ) {
   const profile = getApplicantProfileByUserId(db, userId);
   if (!profile) return null;
-  Object.assign(profile, payload);
+
+  if (payload.fullName !== undefined) profile.fullName = payload.fullName.trim();
+  if (payload.preferredName !== undefined) profile.preferredName = payload.preferredName.trim();
+  if (payload.email !== undefined) profile.email = payload.email.trim();
+  if (payload.phone !== undefined) profile.phone = payload.phone.trim();
+  if (payload.barangay !== undefined) profile.barangay = payload.barangay.trim();
+  if (payload.address !== undefined) profile.address = payload.address.trim();
+  if (payload.bio !== undefined) profile.bio = payload.bio.trim();
+  if (payload.skills !== undefined) profile.skills = payload.skills;
+  if (payload.documentsReady !== undefined) profile.documentsReady = payload.documentsReady;
+
+  if (payload.photoUrl !== undefined || payload.headline !== undefined) {
+    const currentMeta = parseApplicantProfileMeta(profile.headline);
+    const nextMeta: ApplicantProfileMeta = {
+      ...currentMeta,
+      ...(payload.headline !== undefined ? { headline: payload.headline } : {}),
+      ...(payload.photoUrl !== undefined ? { photoUrl: payload.photoUrl || undefined } : {}),
+    };
+    profile.headline = serializeApplicantProfileMeta(nextMeta);
+  }
+
   appendAuditLog(db, { actor: profile.fullName, action: "updated applicant profile", target: profile.fullName });
   return profile;
+}
+
+export { parseEmployerProfileMeta, serializeEmployerProfileMeta } from "@/lib/employer-profile-meta";
+
+export function updateEmployerProfileByUserId(
+  db: PortalDatabase,
+  userId: string,
+  payload: {
+    companyName?: string;
+    businessType?: string;
+    location?: string;
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+    logoUrl?: string | null;
+    tagline?: string;
+  },
+) {
+  const profile = getEmployerProfile(db, userId);
+  if (!profile) return null;
+
+  if (payload.companyName !== undefined) profile.companyName = payload.companyName.trim();
+  if (payload.businessType !== undefined) profile.businessType = payload.businessType.trim();
+  if (payload.location !== undefined) profile.location = payload.location.trim();
+  if (payload.contactPerson !== undefined) profile.contactPerson = payload.contactPerson.trim();
+
+  if (payload.logoUrl !== undefined || payload.tagline !== undefined) {
+    const currentMeta = parseEmployerProfileMeta(profile.headline);
+    const nextMeta: EmployerProfileMeta = {
+      ...currentMeta,
+      ...(payload.tagline !== undefined ? { tagline: payload.tagline } : {}),
+      ...(payload.logoUrl !== undefined ? { logoUrl: payload.logoUrl || undefined } : {}),
+    };
+    profile.headline = serializeEmployerProfileMeta(nextMeta);
+  }
+
+  const user = db.users.find((entry) => entry.id === userId);
+  if (user) {
+    if (payload.email !== undefined) user.email = payload.email.trim();
+    if (payload.phone !== undefined) user.phone = payload.phone.trim();
+  }
+
+  appendAuditLog(db, {
+    actor: profile.contactPerson || "Employer",
+    action: "updated company profile",
+    target: profile.companyName,
+  });
+
+  return { profile, user: user ?? null };
 }
 
 export async function updateVerification(db: PortalDatabase, verificationId: string, status: VerificationRecord["status"]) {
@@ -1591,7 +1789,7 @@ export async function updateVerification(db: PortalDatabase, verificationId: str
       const { error: employerError } = await supabaseAdmin
         .from('employer_profiles')
         .update({ verified: status === 'approved' })
-        .eq('user_id', linkedUser.id);
+        .eq("userId", linkedUser.id);
       if (employerError) {
         console.error(`Failed to update employer profile in Supabase for ${linkedUser.id}:`, employerError);
       }
@@ -1770,6 +1968,120 @@ export async function updateEmployerStatus(
     target: employer.companyName,
   });
   return employer;
+}
+
+export async function updateApplicantStatus(
+  db: PortalDatabase,
+  applicantUserId: string,
+  status: "approved" | "rejected"
+) {
+  const linkedUser = db.users.find((entry) => entry.id === applicantUserId && entry.role === "applicant");
+  if (!linkedUser) return null;
+
+  const newStatus = status === "approved" ? "verified" : "suspended";
+  linkedUser.status = newStatus;
+
+  let updatedInPrisma = false;
+  if (process.env.DATABASE_URL) {
+    try {
+      await prisma.user.update({
+        where: { id: linkedUser.id },
+        data: { status: newStatus },
+      });
+      updatedInPrisma = true;
+    } catch (error) {
+      console.error(`Failed to update applicant user status in Prisma for ${linkedUser.id}:`, error);
+    }
+  }
+
+  if (!updatedInPrisma && supabaseAdmin) {
+    const { error: updateError } = await supabaseAdmin
+      .from("users")
+      .update({ status: newStatus })
+      .eq("id", linkedUser.id);
+    if (updateError) {
+      console.error(`Failed to update applicant user status in Supabase for ${linkedUser.id}:`, updateError);
+    }
+  }
+
+  const profile =
+    db.applicantProfiles.find((entry) => entry.userId === linkedUser.id) ??
+    db.applicantProfiles.find((entry) => entry.email?.toLowerCase() === linkedUser.email?.toLowerCase());
+
+  const normalizedEmail = linkedUser.email?.toLowerCase() ?? "";
+  let verification = db.verifications.find(
+    (record) =>
+      record.type === "Applicant Verification" &&
+      (record.email?.toLowerCase() === normalizedEmail || record.subjectName === (profile?.fullName ?? linkedUser.fullName))
+  );
+
+  if (verification) {
+    verification.status = status;
+    if (status === "approved") {
+      verification.approvedAt = new Date().toISOString();
+      verification.rejectedAt = null;
+      if (!verification.inviteToken) {
+        verification.inviteToken = makeId("invite");
+      }
+    } else {
+      verification.rejectedAt = new Date().toISOString();
+      verification.approvedAt = null;
+    }
+  } else {
+    verification = {
+      id: makeId("verification"),
+      type: "Applicant Verification",
+      subjectName: profile?.fullName ?? linkedUser.fullName,
+      email: linkedUser.email,
+      documents: profile?.documentsReady ?? [],
+      notes: `Admin ${status} applicant account directly.`,
+      status,
+      submittedAt: linkedUser.createdAt,
+      approvedAt: status === "approved" ? new Date().toISOString() : null,
+      rejectedAt: status === "rejected" ? new Date().toISOString() : null,
+      inviteToken: status === "approved" ? makeId("invite") : undefined,
+    };
+    db.verifications.unshift(verification);
+  }
+
+  let verificationUpdatedInPrisma = false;
+  if (process.env.DATABASE_URL) {
+    try {
+      await prisma.verification.upsert({
+        where: { id: verification.id },
+        create: toDbVerification(verification),
+        update: {
+          status: verification.status,
+          approvedAt: verification.approvedAt ? new Date(verification.approvedAt) : null,
+          rejectedAt: verification.rejectedAt ? new Date(verification.rejectedAt) : null,
+          inviteToken: verification.inviteToken ?? null,
+        },
+      });
+      verificationUpdatedInPrisma = true;
+    } catch (error) {
+      console.error(`Failed to upsert applicant verification in Prisma for ${verification.id}:`, error);
+    }
+  }
+
+  if (!verificationUpdatedInPrisma && supabaseAdmin) {
+    const { error: verificationError } = await supabaseAdmin
+      .from("verifications")
+      .upsert(toSupabaseVerification(verification), { onConflict: "id" });
+    if (verificationError) {
+      console.error(`Failed to upsert applicant verification in Supabase for ${verification.id}:`, verificationError);
+    }
+  }
+
+  if (status === "approved") {
+    await sendVerificationInvite(db, verification.id);
+  }
+
+  appendAuditLog(db, {
+    actor: "Barangay Admin",
+    action: `marked applicant ${status}`,
+    target: profile?.fullName ?? linkedUser.fullName,
+  });
+  return linkedUser;
 }
 
 export function sendVerificationInvite(db: PortalDatabase, verificationId: string) {

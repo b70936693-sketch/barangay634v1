@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminPanel, ActionButton, EmptyState, StatusBadge } from "../_components";
-import { useAdminAction, useAdminPortal } from "../api-client-react";
+import { useAdminJobPostAction, useAdminPortal } from "../api-client-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { supabaseClient } from "@/lib/supabase-client";
+import { EmployerAvatar } from "@/components/employer-avatar";
 import {
   Briefcase,
   Building2,
@@ -28,6 +29,7 @@ type JobPostRecord = {
   title: string;
   position: string;
   companyName?: string;
+  employerLogoUrl?: string | null;
   location?: string;
   status: string;
   applicantCount?: number;
@@ -61,6 +63,14 @@ const INAPPROPRIATE_REASONS = [
   "Violates community guidelines",
   "Other",
 ] as const;
+
+function needsAdminReview(post: JobPostRecord) {
+  return post.status === "pending" || (post.status === "active" && !post.publishedAt);
+}
+
+function isPublishedLive(post: JobPostRecord) {
+  return post.status === "active" && Boolean(post.publishedAt);
+}
 
 const REVIEW_CHECKLIST_ITEMS = [
   { key: "documentsReady", label: "Required documents submitted" },
@@ -149,8 +159,8 @@ function JobOverviewDialog({
 }) {
   if (!post) return null;
 
-  const isPendingReview = post.status === "pending";
-  const isLive = post.status === "active";
+  const isPendingReview = needsAdminReview(post);
+  const isLive = isPublishedLive(post);
   const isRemoved = post.status === "rejected" || post.status === "closed";
 
   return (
@@ -176,12 +186,17 @@ function JobOverviewDialog({
                 </span>
               ) : null}
             </div>
-            <DialogTitle className="text-2xl font-bold leading-tight text-white sm:text-3xl">
-              {post.title}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-white/80">
-              {post.companyName} • {post.position}
-            </DialogDescription>
+            <div className="flex items-start gap-4">
+              <EmployerAvatar name={post.companyName} logoUrl={post.employerLogoUrl} size="lg" className="border-white/30 bg-white/10 text-white" />
+              <div>
+                <DialogTitle className="text-2xl font-bold leading-tight text-white sm:text-3xl">
+                  {post.title}
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-white/80">
+                  {post.companyName} • {post.position}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           <div className="mt-5 flex flex-wrap gap-2">
@@ -317,7 +332,7 @@ function JobOverviewDialog({
             {isPendingReview ? (
               <>
                 <ActionButton
-                  label={isPending ? "Saving..." : "Send back for review"}
+                  label={isPending ? "Saving..." : "Reject"}
                   variant="secondary"
                   disabled={isPending}
                   onClickAction={() => onSendBack()}
@@ -358,9 +373,101 @@ function JobOverviewDialog({
   );
 }
 
+function JobPostRow({
+  post,
+  isSaving,
+  onOpen,
+  onApprove,
+  onReject,
+  onFlag,
+}: {
+  post: JobPostRecord;
+  isSaving: boolean;
+  onOpen: (post: JobPostRecord) => void;
+  onApprove: (post: JobPostRecord) => void;
+  onReject: (post: JobPostRecord) => void;
+  onFlag: (post: JobPostRecord) => void;
+}) {
+  const awaitingReview = needsAdminReview(post);
+  const isLive = isPublishedLive(post);
+
+  return (
+    <div
+      data-post-id={post.id}
+      onClick={() => onOpen(post)}
+      className={`group flex cursor-pointer flex-col gap-4 rounded-2xl border p-4 transition hover:shadow-sm lg:flex-row lg:items-center lg:justify-between ${
+        awaitingReview
+          ? "border-amber-200 bg-amber-50/40 hover:border-amber-300"
+          : "border-[#dfe8f0] bg-[#fbfdff] hover:border-[#b9d0e8]"
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-3">
+          <EmployerAvatar name={post.companyName} logoUrl={post.employerLogoUrl} size="sm" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-[#29425e]">{post.title}</div>
+          </div>
+        </div>
+        <div className="mt-1 text-xs text-[#7b8ca0]">
+          {post.companyName} • {post.position}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#7b8ca0]">
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" />
+            {formatDate(post.createdAt)}
+          </span>
+          {post.salary ? <span>{post.salary}</span> : null}
+          {awaitingReview ? (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
+              Awaiting approval
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[#29425e]">
+          <Briefcase className="h-4 w-4 text-[#7b8ca0]" />
+          {post.applicantCount ?? 0}
+        </div>
+        <StatusBadge value={awaitingReview ? "pending" : post.status} />
+        {awaitingReview ? (
+          <>
+            <ActionButton
+              label={isSaving ? "Saving..." : "Approve"}
+              variant="primary"
+              disabled={isSaving}
+              onClickAction={(e) => {
+                e.stopPropagation();
+                onApprove(post);
+              }}
+            />
+            <ActionButton
+              label="Reject"
+              disabled={isSaving}
+              onClickAction={(e) => {
+                e.stopPropagation();
+                onReject(post);
+              }}
+            />
+          </>
+        ) : isLive ? (
+          <ActionButton
+            label="Flag"
+            onClickAction={(e) => {
+              e.stopPropagation();
+              onFlag(post);
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function JobPostsPage() {
   const { data } = useAdminPortal();
-  const mutate = useAdminAction();
+  const mutate = useAdminJobPostAction();
   const queryClient = useQueryClient();
 
   const [overviewPost, setOverviewPost] = useState<JobPostRecord | null>(null);
@@ -377,38 +484,26 @@ export default function JobPostsPage() {
     accessibilityIncluded: true,
   });
 
-  const getJobIdFromEvent = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const closest = (e.currentTarget as HTMLButtonElement).closest("[data-post-id]");
-    return closest?.getAttribute("data-post-id") || null;
-  };
-
   const runJobAction = (
     jobId: string,
     status: string,
     rejectionNotes?: string,
     onDone?: () => void
   ) => {
-    const payload: Record<string, string> = {
-      type: "job_post",
-      jobId,
-      status,
-    };
-    if (rejectionNotes) payload.rejectionNotes = rejectionNotes;
-
-    mutate.mutate(payload, {
-      onSuccess: () => onDone?.(),
-    });
+    mutate.mutate(
+      {
+        jobId,
+        status,
+        ...(rejectionNotes ? { rejectionNotes } : {}),
+      },
+      {
+        onSuccess: () => onDone?.(),
+      }
+    );
   };
 
   const handleApprove = (jobId: string, onDone?: () => void) => {
     runJobAction(jobId, "active", undefined, onDone);
-  };
-
-  const handleAction = (status: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    const jobId = getJobIdFromEvent(e);
-    if (!jobId) return;
-    runJobAction(jobId, status);
   };
 
   const openDismissModal = (post: JobPostRecord) => {
@@ -477,9 +572,12 @@ export default function JobPostsPage() {
   }, [queryClient]);
 
   const jobPosts = (data?.jobPosts ?? []) as JobPostRecord[];
-  const pendingCount = jobPosts.filter((post) => post.status === "pending").length;
-  const dismissedCount = jobPosts.filter((post) => post.status === "rejected" || post.status === "closed").length;
-  const activeCount = jobPosts.filter((post) => post.status === "active").length;
+  const pendingPosts = jobPosts.filter((post) => needsAdminReview(post));
+  const livePosts = jobPosts.filter((post) => isPublishedLive(post));
+  const removedPosts = jobPosts.filter((post) => post.status === "rejected" || post.status === "closed");
+  const pendingCount = pendingPosts.length;
+  const dismissedCount = removedPosts.length;
+  const activeCount = livePosts.length;
 
   return (
     <AdminPanel
@@ -501,68 +599,90 @@ export default function JobPostsPage() {
         </div>
       </div>
 
-      <div className="mt-4 space-y-3">
-        {jobPosts.length ? (
-          jobPosts.map((post) => (
-            <div
-              key={post.id}
-              data-post-id={post.id}
-              onClick={() => setOverviewPost(post)}
-              className="group flex cursor-pointer flex-col gap-4 rounded-2xl border border-[#dfe8f0] bg-[#fbfdff] p-4 transition hover:border-[#b9d0e8] hover:shadow-sm lg:flex-row lg:items-center lg:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 shrink-0 text-[#7b8ca0]" />
-                  <div className="truncate text-sm font-semibold text-[#29425e]">{post.title}</div>
-                </div>
-                <div className="mt-1 text-xs text-[#7b8ca0]">
-                  {post.companyName} • {post.position}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#7b8ca0]">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {formatDate(post.createdAt)}
-                  </span>
-                  {post.salary ? <span>{post.salary}</span> : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div className="inline-flex items-center gap-1.5 text-sm font-medium text-[#29425e]">
-                  <Briefcase className="h-4 w-4 text-[#7b8ca0]" />
-                  {post.applicantCount ?? 0}
-                </div>
-                <StatusBadge value={post.status} />
-                {post.status === "pending" ? (
-                  <>
-                    <ActionButton
-                      label="Approve"
-                      variant="primary"
-                      onClickAction={handleAction("active")}
-                    />
-                    <ActionButton
-                      label="Send back"
-                      onClickAction={(e) => {
-                        e.stopPropagation();
-                        openDismissModal(post);
-                      }}
-                    />
-                  </>
-                ) : post.status === "active" ? (
-                  <ActionButton
-                    label="Flag"
-                    onClickAction={(e) => {
-                      e.stopPropagation();
-                      openInappropriateModal(post);
-                    }}
-                  />
-                ) : null}
-              </div>
+      <div className="mt-6 space-y-8">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-[#203142]">Pending approval</h3>
+              <p className="text-sm text-[#7b8ca0]">
+                Employer-submitted posts stay hidden from applicants until you approve them.
+              </p>
             </div>
-          ))
-        ) : (
-          <EmptyState title="No job posts yet" copy="Employer-created opportunities will appear here." />
-        )}
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+              {pendingCount} waiting
+            </span>
+          </div>
+          {pendingPosts.length ? (
+            pendingPosts.map((post) => (
+              <JobPostRow
+                key={post.id}
+                post={post}
+                isSaving={mutate.isPending}
+                onOpen={setOverviewPost}
+                onApprove={(item) => handleApprove(item.id)}
+                onReject={openDismissModal}
+                onFlag={openInappropriateModal}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No posts awaiting review"
+              copy="New employer job posts will appear here for approval or rejection."
+            />
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-[#203142]">Live posts</h3>
+              <p className="text-sm text-[#7b8ca0]">Approved listings currently visible to applicants.</p>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+              {activeCount} live
+            </span>
+          </div>
+          {livePosts.length ? (
+            livePosts.map((post) => (
+              <JobPostRow
+                key={post.id}
+                post={post}
+                isSaving={mutate.isPending}
+                onOpen={setOverviewPost}
+                onApprove={(item) => handleApprove(item.id)}
+                onReject={openDismissModal}
+                onFlag={openInappropriateModal}
+              />
+            ))
+          ) : (
+            <EmptyState title="No live posts" copy="Approved job posts will appear here once published." />
+          )}
+        </section>
+
+        {removedPosts.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-[#203142]">Removed posts</h3>
+                <p className="text-sm text-[#7b8ca0]">Rejected or closed listings no longer visible to applicants.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                {dismissedCount} removed
+              </span>
+            </div>
+            {removedPosts.map((post) => (
+              <JobPostRow
+                key={post.id}
+                post={post}
+                isSaving={mutate.isPending}
+                onOpen={setOverviewPost}
+                onApprove={(item) => handleApprove(item.id)}
+                onReject={openDismissModal}
+                onFlag={openInappropriateModal}
+              />
+            ))}
+          </section>
+        ) : null}
       </div>
 
       <JobOverviewDialog
@@ -599,9 +719,9 @@ export default function JobPostsPage() {
       >
         <DialogContent className="flex max-h-[90vh] max-w-xl flex-col gap-4 overflow-hidden bg-white">
           <DialogHeader className="shrink-0">
-            <DialogTitle>Send back for review</DialogTitle>
+            <DialogTitle>Reject job post</DialogTitle>
             <DialogDescription>
-              Return this post to the employer with clear feedback. It will stay hidden from applicants.
+              Reject this listing and return it to the employer with feedback. It will stay hidden from applicants.
             </DialogDescription>
           </DialogHeader>
 
@@ -662,7 +782,7 @@ export default function JobPostsPage() {
               }}
             />
             <ActionButton
-              label={mutate.isPending ? "Saving..." : "Send back"}
+              label={mutate.isPending ? "Saving..." : "Reject post"}
               variant="primary"
               disabled={!dismissReason.trim() || mutate.isPending}
               onClickAction={() => confirmDismiss()}

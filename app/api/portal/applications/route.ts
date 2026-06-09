@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       return { error: "Job post not found" } as const;
     }
 
-    if (jobPost.status !== "active") {
+    if (jobPost.status !== "active" || !jobPost.publishedAt) {
       return { error: "Job post not approved by admin yet" } as const;
     }
 
