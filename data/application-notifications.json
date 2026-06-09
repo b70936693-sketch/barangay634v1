@@ -1,0 +1,17 @@
+[
+  {
+    "id": "d954165b-d877-41bb-937b-6589a2b4ba17",
+    "applicationId": "01f12d8c-02ec-40e2-8c75-b13fb7ef8fa1",
+    "applicantProfileId": "35017a4c-9457-4600-b19e-0efdc5361959",
+    "applicantUserId": "ed0c8823-8117-4f1d-b0bd-45d20038b3ec",
+    "applicantEmail": "mariaangelicareyesbrgy634@gmail.com",
+    "type": "hired",
+    "title": "You are hired!",
+    "message": "John Carlo Santos's Business selected you for Store Staff Needed. Check your portal for next steps.",
+    "jobTitle": "Store Staff Needed",
+    "employerName": "John Carlo Santos's Business",
+    "emailSent": true,
+    "read": true,
+    "createdAt": "2026-06-09T19:47:16.673Z"
+  }
+]
