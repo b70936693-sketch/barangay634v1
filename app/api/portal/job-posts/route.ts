@@ -8,8 +8,27 @@ import type { JobPost } from "@/lib/backend/types";
 
 function toIsoTimestamp(value: unknown) {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(String(value));
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) {
+    const date = new Date(`${dateOnly[1]}T00:00:00+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function isMissingColumnError(error: { message?: string } | null | undefined) {
+  const message = error?.message ?? "";
+  return message.includes("Could not find the") && message.includes("column");
 }
 
 function buildJobPostFields(data: Record<string, unknown>) {
@@ -207,7 +226,7 @@ export async function POST(request: Request) {
 
       const postId = makeId("job");
 
-      const newPost = {
+      const corePost = {
         id: postId,
         employer_id: employerProfileId,
         title: data.title,
@@ -226,20 +245,39 @@ export async function POST(request: Request) {
         benefits: ["Community-based employment", "Local support"],
         employer_requirements: employerRequirements,
         admin_requirements: adminRequirements,
+        created_at: now,
+      };
+
+      const extendedPost = {
         posting_start_date: postingStartDate,
         posting_end_date: postingEndDate,
         shifts,
         pwd_friendly: pwdFriendly,
         senior_friendly: seniorFriendly,
         accessibility_features: accessibilityFeatures,
-        created_at: now,
       };
 
-      const { data: insertedPost, error: insertError } = await supabaseAdmin
+      let insertedPost: Record<string, unknown> | null = null;
+      let insertError: { message?: string } | null = null;
+
+      const fullInsert = await supabaseAdmin
         .from("job_posts")
-        .insert(newPost)
+        .insert({ ...corePost, ...extendedPost })
         .select()
         .single();
+
+      insertedPost = fullInsert.data;
+      insertError = fullInsert.error;
+
+      if (insertError && isMissingColumnError(insertError)) {
+        console.warn(
+          "[job-posts] Extended job post columns missing in Supabase; inserting core fields only. Run migration 007_job_posts_extended_fields.sql.",
+          insertError.message
+        );
+        const fallbackInsert = await supabaseAdmin.from("job_posts").insert(corePost).select().single();
+        insertedPost = fallbackInsert.data;
+        insertError = fallbackInsert.error;
+      }
 
       if (insertError) {
         throw insertError;

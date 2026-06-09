@@ -93,20 +93,60 @@ const REVIEW_CHECKLIST_ITEMS = [
   { key: "accessibilityIncluded", label: "Accessibility details included" },
 ] as const;
 
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+const PORTAL_TIME_ZONE = "Asia/Manila";
+
+function parsePortalTimestamp(value?: string | null) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) {
+    const date = new Date(`${dateOnly[1]}T00:00:00+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const bareTimestamp = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/);
+  if (bareTimestamp) {
+    const date = new Date(`${bareTimestamp[1]}T${bareTimestamp[2]}+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateParts(value?: string | null) {
+  const date = parsePortalTimestamp(value);
+  if (!date) {
+    return { date: "—", time: "" };
+  }
+
+  return {
+    date: date.toLocaleDateString("en-PH", {
+      timeZone: PORTAL_TIME_ZONE,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    time: date.toLocaleTimeString("en-PH", {
+      timeZone: PORTAL_TIME_ZONE,
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  };
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
+  const parts = formatDateParts(value);
+  if (parts.date === "—") return "—";
+  return parts.time ? `${parts.date} · ${parts.time}` : parts.date;
 }
 
 function formatShiftLabel(shift: string) {
@@ -125,10 +165,10 @@ function renderList(value: unknown) {
   if (!value) return null;
   if (Array.isArray(value) && value.length > 0) {
     return (
-      <ul className="mt-2 space-y-1.5">
+      <ul className="mt-1 space-y-1">
         {value.map((item, index) => (
-          <li key={index} className="flex gap-2 text-sm text-[#506274]">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2f6fa4]" />
+          <li key={index} className="flex gap-1.5 text-xs text-[#506274]">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#2f6fa4]" />
             <span>{String(item)}</span>
           </li>
         ))}
@@ -138,10 +178,10 @@ function renderList(value: unknown) {
   if (typeof value === "string" && value.trim()) {
     const lines = value.includes("\n") ? value.split("\n") : value.split(",").map((s) => s.trim());
     return (
-      <ul className="mt-2 space-y-1.5">
+      <ul className="mt-1 space-y-1">
         {lines.filter(Boolean).map((line, index) => (
-          <li key={index} className="flex gap-2 text-sm text-[#506274]">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2f6fa4]" />
+          <li key={index} className="flex gap-1.5 text-xs text-[#506274]">
+            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#2f6fa4]" />
             <span>{line}</span>
           </li>
         ))}
@@ -154,14 +194,27 @@ function renderList(value: unknown) {
 function OverviewField({
   label,
   value,
+  datetime = false,
 }: {
   label: string;
   value?: string | number | null;
+  datetime?: boolean;
 }) {
+  const parts = datetime && typeof value === "string" ? formatDateParts(value) : null;
+
   return (
-    <div className="rounded-2xl border border-[#e5edf5] bg-[#f8fbff] p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7b8ca0]">{label}</div>
-      <div className="mt-2 text-sm font-medium text-[#203142] break-words">{value || "Not provided"}</div>
+    <div className="rounded-lg border border-[#e5edf5] bg-[#f8fbff] px-2.5 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#7b8ca0]">{label}</div>
+      {parts ? (
+        <div className="mt-0.5 break-words">
+          <div className="text-xs font-medium text-[#203142]">{parts.date}</div>
+          {parts.time ? (
+            <div className="text-[11px] font-semibold text-[#2f6fa4]">{parts.time}</div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-0.5 text-xs font-medium text-[#203142] break-words">{value || "Not provided"}</div>
+      )}
     </div>
   );
 }
@@ -176,12 +229,12 @@ function DetailSection({
   empty?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-[#e5edf5] bg-white p-4">
-      <div className="text-sm font-semibold text-[#203142]">{title}</div>
+    <div className="rounded-lg border border-[#e5edf5] bg-white px-3 py-2.5">
+      <div className="text-xs font-semibold text-[#203142]">{title}</div>
       {empty ? (
-        <p className="mt-2 text-sm text-[#9aa9ba]">Not provided</p>
+        <p className="mt-1 text-xs text-[#9aa9ba]">Not provided</p>
       ) : (
-        <div className="mt-2">{children}</div>
+        <div className="mt-1">{children}</div>
       )}
     </div>
   );
@@ -219,135 +272,117 @@ function JobOverviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-2xl sm:rounded-2xl top-[50%] translate-y-[-50%]">
-        <div className="relative shrink-0 overflow-hidden bg-[linear-gradient(135deg,#2f5e8f_0%,#214b74_60%,#1d3d5c_100%)] px-6 pb-6 pt-6 text-white">
-          <div className="absolute bottom-0 right-0 h-36 w-36 rounded-full bg-[#ffd45d]/15 blur-3xl" />
-          <DialogHeader className="space-y-3 text-left">
-            <div className="flex flex-wrap items-center gap-2">
+      <DialogContent
+        hideClose
+        className="flex max-h-[82vh] max-w-2xl flex-col gap-0 overflow-hidden border-0 bg-white p-0 shadow-xl sm:rounded-xl top-[50%] translate-y-[-50%]"
+      >
+        <div className="relative shrink-0 overflow-hidden bg-[linear-gradient(135deg,#2f5e8f_0%,#214b74_100%)] px-4 py-3 text-white">
+          <DialogHeader className="space-y-2 text-left">
+            <div className="flex flex-wrap items-center gap-1.5">
               <StatusBadge value={post.status} />
               {post.employerVerified ? (
-                <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-semibold text-emerald-100">
-                  Verified employer
+                <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-100">
+                  Verified
                 </span>
               ) : (
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">
-                  Unverified employer
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                  Unverified
                 </span>
               )}
               {post.urgency ? (
-                <span className="rounded-full bg-[#ffd45d] px-3 py-1 text-xs font-semibold text-[#3c5062]">
+                <span className="rounded-full bg-[#ffd45d] px-2 py-0.5 text-[10px] font-semibold text-[#3c5062]">
                   {post.urgency}
                 </span>
               ) : null}
             </div>
-            <div className="flex items-start gap-4">
-              <EmployerAvatar name={post.companyName} logoUrl={post.employerLogoUrl} size="lg" className="border-white/30 bg-white/10 text-white" />
-              <div>
-                <DialogTitle className="text-2xl font-bold leading-tight text-white sm:text-3xl">
+            <div className="flex items-start gap-2.5">
+              <EmployerAvatar name={post.companyName} logoUrl={post.employerLogoUrl} size="sm" className="border-white/30 bg-white/10 text-white" />
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-base font-semibold leading-snug text-white sm:text-lg">
                   {post.title}
                 </DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-white/80">
+                <DialogDescription className="mt-0.5 text-xs text-white/80">
                   {post.companyName} • {post.position}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            {post.employmentType ? (
-              <span className="rounded-full bg-white/12 px-3 py-1 text-xs font-medium">{post.employmentType}</span>
-            ) : null}
-            {post.salary ? (
-              <span className="rounded-full bg-white/12 px-3 py-1 text-xs font-medium">{post.salary}</span>
-            ) : null}
-            {post.postType ? (
-              <span className="rounded-full bg-white/12 px-3 py-1 text-xs font-medium">
-                {post.postType.replace(/_/g, " ")}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="flex items-center gap-2 text-sm text-white/85">
-              <MapPin className="h-4 w-4 shrink-0" />
-              <span className="break-words">{post.location || "Barangay 634"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-white/85">
-              <Clock3 className="h-4 w-4 shrink-0" />
-              <span className="break-words">{post.schedule || "Schedule not set"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-white/85">
-              <Users className="h-4 w-4 shrink-0" />
-              <span>{post.applicantCount ?? 0} applicants</span>
-            </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/85">
+            {post.employmentType ? <span>{post.employmentType}</span> : null}
+            {post.salary ? <span>{post.salary}</span> : null}
+            {post.postType ? <span>{post.postType.replace(/_/g, " ")}</span> : null}
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              {post.location || "Barangay 634"}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Clock3 className="h-3 w-3 shrink-0" />
+              {post.schedule || "Flexible"}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-3 w-3 shrink-0" />
+              {post.applicantCount ?? 0} applicants
+            </span>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {isPendingReview ? (
-            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              This post is awaiting admin approval and is hidden from applicants until you approve it.
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Awaiting admin approval — hidden from applicants until approved.
             </div>
           ) : null}
 
           {post.rejectionNotes ? (
-            <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-              <div className="text-sm font-semibold text-red-800">Admin notes</div>
-              <p className="mt-1 text-sm leading-6 text-red-700">{post.rejectionNotes}</p>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+              <div className="text-xs font-semibold text-red-800">Admin notes</div>
+              <p className="mt-0.5 text-xs leading-5 text-red-700">{post.rejectionNotes}</p>
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <OverviewField label="Submitted" value={formatDateTime(post.submittedAt ?? post.createdAt)} />
-            <OverviewField label="Published" value={formatDateTime(post.publishedAt)} />
-            <OverviewField label="Posting start" value={formatDate(post.postingStartDate)} />
-            <OverviewField label="Posting end" value={formatDate(post.postingEndDate)} />
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <OverviewField label="Submitted" value={post.submittedAt ?? post.createdAt} datetime />
+            <OverviewField label="Published" value={post.publishedAt} datetime />
+            <OverviewField label="Posting start" value={post.postingStartDate} datetime />
+            <OverviewField label="Posting end" value={post.postingEndDate} datetime />
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <OverviewField label="Company" value={post.companyName} />
-            <OverviewField label="Contact person" value={post.contactPerson} />
+            <OverviewField label="Contact" value={post.contactPerson} />
             <OverviewField label="Business type" value={post.businessType} />
-            <OverviewField label="Employer email" value={post.employerEmail} />
-            <OverviewField label="Employer phone" value={post.employerPhone} />
-            <OverviewField label="Work location" value={post.location} />
+            <OverviewField label="Email" value={post.employerEmail} />
+            <OverviewField label="Phone" value={post.employerPhone} />
+            <OverviewField label="Location" value={post.location} />
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <OverviewField label="Post type" value={post.postType?.replace(/_/g, " ")} />
-            <OverviewField label="Employment type" value={post.employmentType} />
-            <OverviewField label="Schedule" value={post.schedule} />
-            <OverviewField label="Salary" value={post.salary} />
-            <OverviewField label="Urgency" value={post.urgency} />
-            <OverviewField label={postDate.label} value={formatDateTime(postDate.value)} />
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-sm font-semibold text-emerald-900">R.A. compliance & accessibility</div>
-            <div className="mt-3 flex flex-wrap gap-2">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+            <div className="text-xs font-semibold text-emerald-900">R.A. compliance & accessibility</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   post.pwdFriendly ? "bg-emerald-100 text-emerald-800" : "bg-white text-[#7b8ca0]"
                 }`}
               >
-                PWD friendly: {post.pwdFriendly ? "Yes" : "No"}
+                PWD: {post.pwdFriendly ? "Yes" : "No"}
               </span>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   post.seniorFriendly ? "bg-emerald-100 text-emerald-800" : "bg-white text-[#7b8ca0]"
                 }`}
               >
-                Senior friendly: {post.seniorFriendly ? "Yes" : "No"}
+                Senior: {post.seniorFriendly ? "Yes" : "No"}
               </span>
             </div>
             {accessibilityLabels.length > 0 ? (
-              <div className="mt-3">{renderList(accessibilityLabels)}</div>
+              <div className="mt-1.5">{renderList(accessibilityLabels)}</div>
             ) : (
-              <p className="mt-3 text-sm text-[#7b8ca0]">No accessibility features listed</p>
+              <p className="mt-1.5 text-xs text-[#7b8ca0]">No accessibility features listed</p>
             )}
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             <DetailSection title="Available shifts" empty={shiftLabels.length === 0}>
               {renderList(shiftLabels)}
             </DetailSection>
@@ -356,28 +391,26 @@ function JobOverviewDialog({
             </DetailSection>
           </div>
 
-          <div className="mt-5">
-            <DetailSection title="Job description" empty={!post.description?.trim()}>
-              <p className="whitespace-pre-wrap text-sm leading-7 text-[#506274]">{post.description}</p>
-            </DetailSection>
-          </div>
+          <DetailSection title="Job description" empty={!post.description?.trim()}>
+            <p className="whitespace-pre-wrap text-xs leading-5 text-[#506274]">{post.description}</p>
+          </DetailSection>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             <DetailSection title="Qualifications" empty={!post.qualifications?.trim()}>
               {renderList(post.qualifications) ?? (
-                <p className="text-sm text-[#506274]">{post.qualifications}</p>
+                <p className="text-xs text-[#506274]">{post.qualifications}</p>
               )}
             </DetailSection>
             <DetailSection title="General requirements" empty={!post.requirements?.trim()}>
               {renderList(post.requirements) ?? (
-                <p className="text-sm text-[#506274]">{post.requirements}</p>
+                <p className="text-xs text-[#506274]">{post.requirements}</p>
               )}
             </DetailSection>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             <DetailSection
-              title="Employer requirements (documents to submit)"
+              title="Employer requirements"
               empty={!(post.employerRequirements?.length ?? 0)}
             >
               {renderList(post.employerRequirements)}
@@ -391,7 +424,7 @@ function JobOverviewDialog({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-[#e5edf5] bg-[#fbfdff] px-6 py-4 sm:flex-row sm:justify-end">
+        <DialogFooter className="shrink-0 border-t border-[#e5edf5] bg-[#fbfdff] px-4 py-2.5 sm:flex-row sm:justify-end">
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <ActionButton label="Close" variant="secondary" onClickAction={() => onClose()} />
             {isPendingReview ? (
@@ -480,7 +513,7 @@ function JobPostRow({
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#7b8ca0]">
           <span className="inline-flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
-            {postDate.label} {formatDateTime(postDate.value)}
+            {postDate.label} {formatDateTime(postDate.value ?? null)}
           </span>
           {post.salary ? <span>{post.salary}</span> : null}
           {awaitingReview ? (

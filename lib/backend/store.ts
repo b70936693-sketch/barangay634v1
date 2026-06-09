@@ -42,22 +42,79 @@ function normalizeArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+const PORTAL_TIME_ZONE = "Asia/Manila";
+
+function parsePortalTimestamp(value: unknown): Date | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(raw)) {
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) {
+    const date = new Date(`${dateOnly[1]}T00:00:00+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const bareTimestamp = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/);
+  if (bareTimestamp) {
+    const date = new Date(`${bareTimestamp[1]}T${bareTimestamp[2]}+08:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function normalizeTimestamp(value: unknown): string {
   if (value === undefined || value === null) {
     return new Date().toISOString();
   }
 
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  const date = parsePortalTimestamp(value);
+  return date ? date.toISOString() : new Date().toISOString();
 }
 
 function normalizeOptionalTimestamp(value: unknown): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
+  const date = parsePortalTimestamp(value);
+  return date ? date.toISOString() : null;
+}
 
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+async function mergeLocalJobPostExtras(db: PortalDatabase): Promise<PortalDatabase> {
+  try {
+    const raw = await readFile(dbPath, "utf8");
+    const local = JSON.parse(raw) as PortalDatabase;
+    const localById = new Map(local.jobPosts.map((post) => [post.id, post]));
+
+    return {
+      ...db,
+      jobPosts: db.jobPosts.map((post) => {
+        const localPost = localById.get(post.id);
+        if (!localPost) return post;
+
+        return {
+          ...post,
+          postingStartDate: post.postingStartDate ?? localPost.postingStartDate ?? null,
+          postingEndDate: post.postingEndDate ?? localPost.postingEndDate ?? null,
+          shifts: post.shifts?.length ? post.shifts : localPost.shifts ?? [],
+          pwdFriendly: post.pwdFriendly ?? localPost.pwdFriendly,
+          seniorFriendly: post.seniorFriendly ?? localPost.seniorFriendly,
+          accessibilityFeatures: post.accessibilityFeatures?.length
+            ? post.accessibilityFeatures
+            : localPost.accessibilityFeatures ?? [],
+        };
+      }),
+    };
+  } catch {
+    return db;
+  }
 }
 
 function mapUserRow(row: unknown): UserRecord {
@@ -752,7 +809,7 @@ export async function readDatabase(): Promise<PortalDatabase> {
       ].filter(Boolean);
 
       if (errors.length === 0 && usersRes.data && employerProfilesRes.data && applicantProfilesRes.data && jobPostsRes.data && applicationsRes.data && interviewsRes.data && verificationsRes.data && reportsRes.data && alertsRes.data && auditLogsRes.data && servicesRes.data) {
-        return {
+        return mergeLocalJobPostExtras({
           users: usersRes.data.map(mapUserRow),
           employerProfiles: employerProfilesRes.data.map(mapEmployerRow),
           applicantProfiles: applicantProfilesRes.data.map(mapApplicantRow),
@@ -764,7 +821,7 @@ export async function readDatabase(): Promise<PortalDatabase> {
           alerts: alertsRes.data.map(mapAlertRow),
           auditLogs: auditLogsRes.data.map(mapAuditLogRow),
           services: servicesRes.data.map(mapServiceRow),
-        };
+        });
       }
 
       console.error("Supabase fallback readDatabase had errors", errors);
