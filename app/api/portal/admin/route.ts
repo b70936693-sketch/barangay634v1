@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePortalRole } from "@/lib/backend/auth";
-import { readDatabase, sendVerificationInvite, updateAlert, updateJobPostStatus, updateJobPostStatusWithNotes, updateReport, updateService, updateVerification, withDerivedData, writeDatabase } from "@/lib/backend/store";
+import { readDatabase, sendVerificationInvite, updateAlert, updateEmployerStatus, updateJobPostStatus, updateJobPostStatusWithNotes, updateReport, updateService, updateVerification, withDerivedData, writeDatabase } from "@/lib/backend/store";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 
@@ -41,6 +41,14 @@ export async function PATCH(request: Request) {
       // Ensure inviteToken/inviteSentAt are persisted.
       await sendVerificationInvite(db, body.id);
     }
+  }
+
+  if (body.type === "employer") {
+    const employerStatus = body.status === "approved" || body.status === "rejected" ? body.status : null;
+    if (!employerStatus) {
+      return NextResponse.json({ error: "Invalid employer status" }, { status: 400 });
+    }
+    result = await updateEmployerStatus(db, body.id, employerStatus);
   }
 
 

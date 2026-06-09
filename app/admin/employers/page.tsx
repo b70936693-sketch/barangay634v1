@@ -50,7 +50,8 @@ export default function EmployersPage() {
             item.type === "Employer Verification" &&
             (item.email?.toLowerCase() === user?.email?.toLowerCase() ||
               item.subjectName === profile.companyName ||
-              item.subjectName === profile.contactPerson)
+              item.subjectName === profile.contactPerson ||
+              item.subjectName === user?.fullName)
         );
 
         return {
@@ -129,6 +130,7 @@ export default function EmployersPage() {
         onCloseAction={() => setSelectedEmployer(null)}
         title={selectedEmployer?.companyName ?? "Employer Submission"}
         subtitle="Employer verification details, uploaded files, and admin review controls."
+        employerId={selectedEmployer?.id ?? null}
         fields={[
           { label: "Contact Person", value: selectedEmployer?.contactPerson ?? "" },
           { label: "Email", value: selectedEmployer?.email ?? "" },

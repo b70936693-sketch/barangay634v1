@@ -1637,6 +1637,141 @@ export async function updateVerification(db: PortalDatabase, verificationId: str
   return item;
 }
 
+export async function updateEmployerStatus(
+  db: PortalDatabase,
+  employerId: string,
+  status: "approved" | "rejected"
+) {
+  const employer = db.employerProfiles.find((profile) => profile.id === employerId);
+  if (!employer) return null;
+
+  employer.verified = status === "approved";
+
+  const linkedUser = db.users.find((entry) => entry.id === employer.userId);
+  if (linkedUser && linkedUser.role !== "admin") {
+    const newStatus = status === "approved" ? "verified" : "suspended";
+    linkedUser.status = newStatus;
+
+    let updatedInPrisma = false;
+    if (process.env.DATABASE_URL) {
+      try {
+        await prisma.user.update({
+          where: { id: linkedUser.id },
+          data: { status: newStatus },
+        });
+        updatedInPrisma = true;
+      } catch (error) {
+        console.error(`Failed to update user status in Prisma for ${linkedUser.id}:`, error);
+      }
+    }
+
+    if (!updatedInPrisma && supabaseAdmin) {
+      const { error: updateError } = await supabaseAdmin
+        .from("users")
+        .update({ status: newStatus })
+        .eq("id", linkedUser.id);
+      if (updateError) {
+        console.error(`Failed to update user status in Supabase for ${linkedUser.id}:`, updateError);
+      }
+    }
+  }
+
+  let employerUpdatedInPrisma = false;
+  if (process.env.DATABASE_URL) {
+    try {
+      await prisma.employerProfile.update({
+        where: { id: employer.id },
+        data: { verified: status === "approved" },
+      });
+      employerUpdatedInPrisma = true;
+    } catch (error) {
+      console.error(`Failed to update employer profile in Prisma for ${employer.id}:`, error);
+    }
+  }
+
+  if (!employerUpdatedInPrisma && supabaseAdmin) {
+    const { error: employerError } = await supabaseAdmin
+      .from("employer_profiles")
+      .update({ verified: status === "approved" })
+      .eq("id", employer.id);
+    if (employerError) {
+      console.error(`Failed to update employer profile in Supabase for ${employer.id}:`, employerError);
+    }
+  }
+
+  const normalizedEmail = linkedUser?.email?.toLowerCase() ?? "";
+  let verification = db.verifications.find(
+    (record) =>
+      record.type === "Employer Verification" &&
+      (record.email?.toLowerCase() === normalizedEmail ||
+        record.subjectName === employer.companyName ||
+        record.subjectName === employer.contactPerson)
+  );
+
+  if (verification) {
+    verification.status = status;
+    if (status === "approved") {
+      verification.approvedAt = new Date().toISOString();
+      verification.rejectedAt = null;
+    } else {
+      verification.rejectedAt = new Date().toISOString();
+      verification.approvedAt = null;
+    }
+  } else if (linkedUser) {
+    verification = {
+      id: makeId("verification"),
+      type: "Employer Verification",
+      subjectName: employer.contactPerson || employer.companyName,
+      email: linkedUser.email,
+      documents: [],
+      notes: `Admin ${status} employer account directly.`,
+      status,
+      submittedAt: new Date().toISOString(),
+      approvedAt: status === "approved" ? new Date().toISOString() : null,
+      rejectedAt: status === "rejected" ? new Date().toISOString() : null,
+    };
+    db.verifications.unshift(verification);
+  }
+
+  if (verification) {
+    let verificationUpdatedInPrisma = false;
+    if (process.env.DATABASE_URL) {
+      try {
+        if (db.verifications.some((record) => record.id === verification!.id)) {
+          await prisma.verification.upsert({
+            where: { id: verification.id },
+            create: toDbVerification(verification),
+            update: {
+              status: verification.status,
+              approvedAt: verification.approvedAt ? new Date(verification.approvedAt) : null,
+              rejectedAt: verification.rejectedAt ? new Date(verification.rejectedAt) : null,
+            },
+          });
+        }
+        verificationUpdatedInPrisma = true;
+      } catch (error) {
+        console.error(`Failed to upsert employer verification in Prisma for ${verification.id}:`, error);
+      }
+    }
+
+    if (!verificationUpdatedInPrisma && supabaseAdmin) {
+      const { error: verificationError } = await supabaseAdmin
+        .from("verifications")
+        .upsert(toSupabaseVerification(verification), { onConflict: "id" });
+      if (verificationError) {
+        console.error(`Failed to upsert employer verification in Supabase for ${verification.id}:`, verificationError);
+      }
+    }
+  }
+
+  appendAuditLog(db, {
+    actor: "Barangay Admin",
+    action: `marked employer ${status}`,
+    target: employer.companyName,
+  });
+  return employer;
+}
+
 export function sendVerificationInvite(db: PortalDatabase, verificationId: string) {
   const item = db.verifications.find((record) => record.id === verificationId);
   if (!item || item.status !== "approved") return null;
