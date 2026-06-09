@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Calendar, MapPin, Briefcase, Clock, FileText, Building2, BadgeCheck, Edit, Eye, MapPinned, Phone } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Clock, FileText, Building2, BadgeCheck, Edit, Eye, MapPinned, Phone, Mail, User, Download, ExternalLink, Send } from "lucide-react";
+import { getDocumentHref, getDocumentName } from "@/app/employer/lib/portal-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,8 @@ export default function ApplicantApplicationsPage() {
   const { toast } = useToast();
   const [editingApplication, setEditingApplication] = useState<any>(null);
   const [viewInterviewApp, setViewInterviewApp] = useState<any>(null);
+  const [viewSubmissionApp, setViewSubmissionApp] = useState<any>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
   const [editForm, setEditForm] = useState({
     fullName: "",
     email: "",
@@ -45,6 +48,13 @@ export default function ApplicantApplicationsPage() {
       shiftPreference: application.shiftPreference,
       introduction: application.introduction,
     });
+  };
+
+  const openDocumentPreview = (doc: unknown) => {
+    const url = getDocumentHref(doc);
+    const name = getDocumentName(doc);
+    const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
+    setPreviewDoc({ url, name, isImage });
   };
 
   const handleSaveEdit = () => {
@@ -131,7 +141,7 @@ export default function ApplicantApplicationsPage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {grouped.active.map((application: any) => (
-                  <ApplicationCard key={application.id} application={application} onEdit={handleEdit} onViewInterview={setViewInterviewApp} />
+                  <ApplicationCard key={application.id} application={application} onEdit={handleEdit} onViewInterview={setViewInterviewApp} onViewSubmission={setViewSubmissionApp} />
                 ))}
               </div>
             </div>
@@ -144,7 +154,7 @@ export default function ApplicantApplicationsPage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {grouped.past.map((application: any) => (
-                  <ApplicationCard key={application.id} application={application} onEdit={handleEdit} onViewInterview={setViewInterviewApp} />
+                  <ApplicationCard key={application.id} application={application} onEdit={handleEdit} onViewInterview={setViewInterviewApp} onViewSubmission={setViewSubmissionApp} />
                 ))}
               </div>
             </div>
@@ -197,6 +207,173 @@ export default function ApplicantApplicationsPage() {
               </Button>
               <Button variant="outline" onClick={() => setEditingApplication(null)}>Cancel</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewSubmissionApp} onOpenChange={() => setViewSubmissionApp(null)}>
+        <DialogContent className="max-w-2xl gap-0 overflow-hidden border-0 p-0 bg-white sm:max-w-2xl">
+          {viewSubmissionApp && (
+            <>
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#2f5e8f] via-[#255b89] to-[#1a3d5c] px-6 py-6 text-white">
+                <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-cyan-400/20 blur-xl" />
+                <div className="relative space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Your Submission</p>
+                      <DialogTitle className="mt-1 text-xl font-bold text-white sm:text-2xl">
+                        {viewSubmissionApp.title || viewSubmissionApp.position}
+                      </DialogTitle>
+                      <p className="mt-1 text-sm text-white/80">{viewSubmissionApp.employerName}</p>
+                    </div>
+                    <Badge
+                      variant={statusConfig[viewSubmissionApp.status as keyof typeof statusConfig]?.color as any}
+                      className="shrink-0 border-white/20 bg-white/15 text-white backdrop-blur-sm"
+                    >
+                      {statusConfig[viewSubmissionApp.status as keyof typeof statusConfig]?.label}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 backdrop-blur-sm">
+                      <MapPin className="h-3 w-3" />
+                      {viewSubmissionApp.location || "Barangay 634"}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 backdrop-blur-sm">
+                      <Calendar className="h-3 w-3" />
+                      Applied {format(new Date(viewSubmissionApp.appliedDate), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-[min(60vh,520px)] overflow-y-auto px-6 py-5 space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SubmissionInfoTile icon={User} label="Full Name" value={viewSubmissionApp.fullName} />
+                  <SubmissionInfoTile icon={Mail} label="Email" value={viewSubmissionApp.email} />
+                  <SubmissionInfoTile icon={Phone} label="Phone" value={viewSubmissionApp.contact || "Not provided"} />
+                  <SubmissionInfoTile icon={Clock} label="Availability" value={viewSubmissionApp.availability || "Not specified"} />
+                  {viewSubmissionApp.shiftPreference && (
+                    <SubmissionInfoTile icon={Briefcase} label="Shift Preference" value={viewSubmissionApp.shiftPreference} className="sm:col-span-2" />
+                  )}
+                </div>
+
+                <section className="rounded-2xl border border-[#e2ecf5] bg-[#f8fbfd] p-4">
+                  <div className="flex items-center gap-2 text-[#2f5e8f]">
+                    <Send className="h-4 w-4" />
+                    <h3 className="text-sm font-semibold">Introduction</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-[#506274] whitespace-pre-wrap">
+                    {viewSubmissionApp.introduction || "No introduction was provided."}
+                  </p>
+                </section>
+
+                <section className="rounded-2xl border border-[#e2ecf5] bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[#2f5e8f]">
+                      <FileText className="h-4 w-4" />
+                      <h3 className="text-sm font-semibold">Submitted Documents</h3>
+                    </div>
+                    <span className="rounded-full bg-[#e8f4fc] px-2.5 py-0.5 text-xs font-medium text-[#2f6fa4]">
+                      {viewSubmissionApp.documents?.length ?? 0} file{(viewSubmissionApp.documents?.length ?? 0) === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {viewSubmissionApp.documents?.length ? (
+                      viewSubmissionApp.documents.map((doc: unknown, index: number) => {
+                        const name = getDocumentName(doc);
+                        const href = getDocumentHref(doc);
+                        return (
+                          <div
+                            key={`${name}-${index}`}
+                            className="group flex items-center justify-between gap-3 rounded-xl border border-[#e2ecf5] bg-[#f8fbfd] px-4 py-3 transition-colors hover:border-[#2f6fa4]/30 hover:bg-[#f0f7fc]"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#2f6fa4]/10 text-[#2f6fa4]">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <span className="truncate text-sm font-medium text-[#27425f]">{name}</span>
+                            </div>
+                            <div className="flex shrink-0 gap-1.5">
+                              {href ? (
+                                <>
+                                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-[#2f6fa4]" onClick={() => openDocumentPreview(doc)}>
+                                    <Eye className="h-3.5 w-3.5" />
+                                    Preview
+                                  </Button>
+                                  <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" asChild>
+                                    <a href={href} target="_blank" rel="noreferrer">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  </Button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-[#73869a]">Unavailable</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-xl border border-dashed border-[#d6e1eb] bg-[#f8fbfd] px-4 py-6 text-center text-sm text-[#73869a]">
+                        No documents were attached to this application.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {viewSubmissionApp.status === "for_interview" && viewSubmissionApp.interviewDate && (
+                  <section className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-cyan-50/80 to-sky-50/50 p-4">
+                    <div className="flex items-center gap-2 text-cyan-700">
+                      <Calendar className="h-4 w-4" />
+                      <h3 className="text-sm font-semibold">Interview Scheduled</h3>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm text-[#506274] sm:grid-cols-3">
+                      <p><span className="font-medium text-[#27425f]">Date:</span> {format(new Date(viewSubmissionApp.interviewDate), "MMM d, yyyy")}</p>
+                      <p><span className="font-medium text-[#27425f]">Time:</span> {viewSubmissionApp.interviewTime || "TBD"}</p>
+                      <p><span className="font-medium text-[#27425f]">Location:</span> {viewSubmissionApp.interviewLocation || "Barangay 634 Hall"}</p>
+                    </div>
+                  </section>
+                )}
+              </div>
+
+              <DialogFooter className="border-t border-[#e2ecf5] bg-[#f8fbfd] px-6 py-4">
+                {["pending", "reviewing"].includes(viewSubmissionApp.status) && (
+                  <Button variant="outline" className="gap-2" onClick={() => { setViewSubmissionApp(null); handleEdit(viewSubmissionApp); }}>
+                    <Edit className="h-4 w-4" />
+                    Edit Submission
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setViewSubmissionApp(null)}>Close</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle>{previewDoc?.name ?? "Document Preview"}</DialogTitle>
+            <DialogDescription>Preview the document you submitted with this application.</DialogDescription>
+          </DialogHeader>
+          <div className="mt-2">
+            {previewDoc?.isImage ? (
+              <img src={previewDoc.url} alt={previewDoc.name} className="mx-auto max-h-[60vh] max-w-full rounded-xl border border-[#e2ecf5] object-contain" />
+            ) : (
+              <div className="space-y-4 rounded-xl border border-[#e2ecf5] bg-[#f8fbfd] p-6 text-center">
+                <FileText className="mx-auto h-12 w-12 text-[#2f6fa4]/40" />
+                <p className="text-sm text-[#73869a]">This file type cannot be previewed in the browser.</p>
+                {previewDoc?.url && (
+                  <Button asChild className="gap-2">
+                    <a href={previewDoc.url} target="_blank" rel="noreferrer" download>
+                      <Download className="h-4 w-4" />
+                      Open / Download
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -260,7 +437,39 @@ export default function ApplicantApplicationsPage() {
   );
 }
 
-function ApplicationCard({ application, onEdit, onViewInterview }: { application: any; onEdit: (app: any) => void; onViewInterview: (app: any) => void; }) {
+function SubmissionInfoTile({
+  icon: Icon,
+  label,
+  value,
+  className = "",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-xl border border-[#e2ecf5] bg-white p-3.5 ${className}`}>
+      <div className="flex items-center gap-2 text-[#73869a]">
+        <Icon className="h-3.5 w-3.5" />
+        <p className="text-xs font-medium uppercase tracking-wide">{label}</p>
+      </div>
+      <p className="mt-1.5 truncate text-sm font-semibold text-[#27425f]">{value}</p>
+    </div>
+  );
+}
+
+function ApplicationCard({
+  application,
+  onEdit,
+  onViewInterview,
+  onViewSubmission,
+}: {
+  application: any;
+  onEdit: (app: any) => void;
+  onViewInterview: (app: any) => void;
+  onViewSubmission: (app: any) => void;
+}) {
   const status = statusConfig[application.status as keyof typeof statusConfig];
   const canEdit = ["pending", "reviewing"].includes(application.status);
   const isForInterview = application.status === "for_interview";
@@ -304,11 +513,18 @@ function ApplicationCard({ application, onEdit, onViewInterview }: { application
           <Badge variant="outline" className="flex-1 justify-center text-xs"><FileText className="h-3 w-3 mr-1" />Employer Requirements</Badge>
           <Badge variant="secondary" className="flex-1 justify-center text-xs"><BadgeCheck className="h-3 w-3 mr-1" />Admin Verification</Badge>
         </div>
+        <Button size="sm" className="w-full mt-2 gap-2 bg-[#2f6fa4] hover:bg-[#255b89]" onClick={() => onViewSubmission(application)}>
+          <Eye className="h-4 w-4" />
+          View Submission
+        </Button>
         {isForInterview && (
-          <Button size="sm" className="w-full mt-2 gap-2" onClick={() => onViewInterview(application)}><Eye className="h-4 w-4" />View Interview Schedule</Button>
+          <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => onViewInterview(application)}>
+            <Calendar className="h-4 w-4" />
+            View Interview Schedule
+          </Button>
         )}
         {canEdit && (
-          <Button variant="outline" size="sm" onClick={() => onEdit(application)} className="w-full mt-2"><Edit className="h-4 w-4 mr-2" />Edit Application</Button>
+          <Button variant="outline" size="sm" onClick={() => onEdit(application)} className="w-full"><Edit className="h-4 w-4 mr-2" />Edit Application</Button>
         )}
       </CardContent>
     </Card>
