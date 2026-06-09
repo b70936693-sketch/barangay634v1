@@ -504,14 +504,22 @@ function ApplicationCard({
         {application.documents?.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {application.documents.slice(0, 3).map((doc: any, i: number) => (
-              <Badge key={i} variant="outline" className="text-xs">{typeof doc === 'string' ? doc : doc.name}</Badge>
+              <Badge key={i} variant="outline" className="max-w-full truncate text-xs">
+                {typeof doc === "string" ? doc : doc.name}
+              </Badge>
             ))}
-            {application.documents.length > 3 && <Badge variant="secondary" className="text-xs">+{application.documents.length - 3}</Badge>}
+            {application.documents.length > 3 && <Badge variant="secondary" className="shrink-0 text-xs">+{application.documents.length - 3}</Badge>}
           </div>
         )}
-        <div className="flex gap-2 pt-2">
-          <Badge variant="outline" className="flex-1 justify-center text-xs"><FileText className="h-3 w-3 mr-1" />Employer Requirements</Badge>
-          <Badge variant="secondary" className="flex-1 justify-center text-xs"><BadgeCheck className="h-3 w-3 mr-1" />Admin Verification</Badge>
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <Badge variant="outline" className="h-auto min-w-0 justify-center px-2 py-1.5 text-[11px] leading-tight sm:text-xs">
+            <FileText className="mr-1 h-3 w-3 shrink-0" />
+            <span className="truncate">Employer Reqs</span>
+          </Badge>
+          <Badge variant="secondary" className="h-auto min-w-0 justify-center px-2 py-1.5 text-[11px] leading-tight sm:text-xs">
+            <BadgeCheck className="mr-1 h-3 w-3 shrink-0" />
+            <span className="truncate">Admin Verified</span>
+          </Badge>
         </div>
         <Button size="sm" className="w-full mt-2 gap-2 bg-[#2f6fa4] hover:bg-[#255b89]" onClick={() => onViewSubmission(application)}>
           <Eye className="h-4 w-4" />
