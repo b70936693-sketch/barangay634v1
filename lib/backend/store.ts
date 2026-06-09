@@ -1113,6 +1113,7 @@ export function getApplicantProfileByUserId(db: PortalDatabase, userId: string) 
 export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | null = null) {
   const employer = getEmployerProfile(db, currentUser?.id, currentUser?.email);
   const applicantProfile =
+
     currentUser?.role === "applicant"
       ? getApplicantProfile(db, currentUser.id, currentUser.email)
       : getApplicantProfile(db);
@@ -1147,8 +1148,12 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
 
   const scopedApplicationsBase =
     currentUser?.role === "employer"
-      ? db.applications.filter((application) => jobPosts.some((post) => post.id === application.jobPostId))
+      ? db.applications.filter((application) => {
+          // Only include applications whose job post belongs to the current employer’s jobPosts list.
+          return jobPosts.some((post) => post.id === application.jobPostId);
+        })
       : db.applications;
+
 
   const applications = scopedApplicationsBase
     .map((application) => {
@@ -1207,7 +1212,12 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
   };
 
   const applicantApplications = currentApplicantProfile
-    ? applications.filter((application) => application.applicantId === currentApplicantProfile.id)
+    ? applications.filter((application) => {
+        if (application.applicantId === currentApplicantProfile.id) return true;
+        const aEmail = (application.email ?? "").toLowerCase();
+        const pEmail = (currentApplicantProfile.email ?? "").toLowerCase();
+        return !!aEmail && !!pEmail && aEmail === pEmail;
+      })
     : [];
 
   const availableSwipeJobs = currentApplicantProfile

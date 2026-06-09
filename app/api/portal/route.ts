@@ -8,11 +8,38 @@ export async function GET(request: Request) {
   const { portalUser } = await getCurrentPortalUser(request);
   const portalData = await readDatabase();
 
+  const derived = withDerivedData(portalData, portalUser);
+
+  // Temporary debug to confirm where applications disappear.
+  const latestApplication = [...portalData.applications]
+    .sort((a, b) => +new Date(b.appliedDate) - +new Date(a.appliedDate))[0];
+
   return NextResponse.json({
-    ...withDerivedData(portalData, portalUser),
+    ...derived,
     currentUser: portalUser,
+    debug: {
+      applicationsCount: portalData.applications.length,
+      applicantApplicationsCount: (derived as any).applicantApplications?.length ?? 0,
+      latestApplication: latestApplication
+        ? {
+            id: latestApplication.id,
+            applicantId: latestApplication.applicantId,
+            email: latestApplication.email,
+            jobPostId: latestApplication.jobPostId,
+            status: latestApplication.status,
+          }
+        : null,
+      applicantProfile: (derived as any).applicantProfile
+        ? {
+            id: (derived as any).applicantProfile.id,
+            email: (derived as any).applicantProfile.email,
+            userId: (derived as any).applicantProfile.userId,
+          }
+        : null,
+    },
   });
 }
+
 
 export async function POST(request: Request) {
   const { portalUser } = await getCurrentPortalUser(request);
