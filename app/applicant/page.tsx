@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { getSessionSafe } from "@/lib/supabase";
 import { useGetApplicantProfile, useGetCurrentPortalUser, useListApplicantSwipeJobs, useSubmitJobApplication } from "@workspace/api-client-react";
 
 type FormState = {
@@ -242,8 +243,18 @@ export default function ApplicantPage() {
     formData.append("name", file.name);
 
     try {
+      let accessToken: string | undefined;
+      try {
+        const session = await getSessionSafe();
+        accessToken = session?.data?.session?.access_token;
+      } catch {
+        accessToken = undefined;
+      }
+
       const response = await fetch("/api/portal/application-documents", {
         method: "POST",
+        credentials: "include",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         body: formData,
       });
 
@@ -336,6 +347,13 @@ export default function ApplicantPage() {
           setApplyOpen(false);
           setForm(initialForm);
           setUploadedDocuments({});
+        },
+        onError: (error) => {
+          toast({
+            title: "Application failed",
+            description: error instanceof Error ? error.message : "Unable to submit application.",
+            variant: "destructive",
+          });
         },
       }
     );

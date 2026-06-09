@@ -17,6 +17,7 @@ import {
 import { Search, Filter, Mail, Phone, CheckCircle, XCircle, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useListJobPostApplicants, useUpdateApplicantStatus } from "../../api-client-react";
+import { getApplicantAppliedDate, getApplicantContact, getApplicantName } from "@/app/employer/lib/applicant-display";
 import { useToast } from "@/hooks/use-toast";
 
 interface ApplicantModalProps {
@@ -34,11 +35,12 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
   const { data: applicants = [], isLoading } = useListJobPostApplicants(jobPostId);
 
   const filteredApplicants = applicants.filter((app: any) => {
-    const matchesSearch = searchTerm === "" || 
-      app.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const name = getApplicantName(app);
+    const matchesSearch =
+      searchTerm === "" || name.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -46,10 +48,10 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
     switch (status) {
       case "pending":
         return <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-700 border-yellow-500/30">Pending</Badge>;
-      case "reviewed":
-        return <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 border-blue-500/30">Reviewed</Badge>;
-      case "interview":
-        return <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-700 border-cyan-500/30">Interview</Badge>;
+      case "reviewing":
+        return <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 border-blue-500/30">Reviewing</Badge>;
+      case "for_interview":
+        return <Badge variant="secondary" className="bg-cyan-500/20 text-cyan-700 border-cyan-500/30">For Interview</Badge>;
       case "hired":
         return <Badge variant="secondary" className="bg-green-500/20 text-green-700 border-green-500/30">Hired</Badge>;
       case "rejected":
@@ -66,7 +68,7 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
         onSuccess: () => {
           toast({
             title: `Applicant ${status}`,
-            description: `${applicant.full_name} updated to ${status}.`,
+            description: `${getApplicantName(applicant)} updated to ${status}.`,
           });
         },
       }
@@ -101,8 +103,8 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="reviewed">Reviewed</SelectItem>
-              <SelectItem value="interview">Interview</SelectItem>
+              <SelectItem value="reviewing">Reviewing</SelectItem>
+              <SelectItem value="for_interview">For Interview</SelectItem>
               <SelectItem value="hired">Hired</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
@@ -136,8 +138,8 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
               ) : filteredApplicants.length > 0 ? (
                 filteredApplicants.map((app: any) => (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium">{app.full_name}</TableCell>
-                    <TableCell>{format(new Date(app.applied_date), "MMM dd")}</TableCell>
+                    <TableCell className="font-medium">{getApplicantName(app)}</TableCell>
+                    <TableCell>{format(new Date(getApplicantAppliedDate(app)), "MMM dd")}</TableCell>
                     <TableCell>{getStatusBadge(app.status)}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-sm">
@@ -147,7 +149,7 @@ export default function ApplicantModal({ jobPostId, open, onClose }: ApplicantMo
                         </div>
                         <div className="flex items-center gap-1">
                           <Phone className="h-3 w-3" />
-                          {app.phone}
+                          {getApplicantContact(app)}
                         </div>
                       </div>
                     </TableCell>

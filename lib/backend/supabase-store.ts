@@ -12,18 +12,12 @@ export const supabaseStore = supabaseAdmin!
 export async function getJobPostApplications(jobPostId: string) {
   const { data, error } = await supabaseStore
     .from('applications')
-    .select(`
-      *,
-      job_posts (
-        title,
-        employer_id
-      )
-    `)
-    .eq('job_post_id', jobPostId)
-    .order('applied_date', { ascending: false })
+    .select('*')
+    .eq('jobPostId', jobPostId)
+    .order('applied_date', { ascending: false });
 
-  if (error) throw error
-  return data || []
+  if (error) throw error;
+  return data || [];
 }
 
 export async function getEmployerApplications(employerId: string) {

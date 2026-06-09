@@ -53,7 +53,10 @@ function usePortalMutation<TVariables>(options: {
   return useMutation({
     mutationFn: options.mutationFn,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["portal"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["portal"] }),
+        queryClient.invalidateQueries({ queryKey: ["job-post-applicants"] }),
+      ]);
     },
   });
 }
@@ -141,7 +144,12 @@ export const useListPendingApplicants = () => {
 export const useListJobPostApplicants = (jobPostId?: string) => {
   return useQuery({
     queryKey: ["job-post-applicants", jobPostId],
-    queryFn: () => fetchJson<any>(`/api/portal/job-posts/${jobPostId}/applicants`),
+    queryFn: async () => {
+      const data = await fetchJson<{ applications: unknown[] }>(
+        `/api/portal/job-posts/${jobPostId}/applicants`,
+      );
+      return data.applications ?? [];
+    },
     enabled: !!jobPostId,
   });
 };

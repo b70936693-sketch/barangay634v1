@@ -56,6 +56,12 @@ export type JobPost = {
   adminRequirements: string[];
   rejectionNotes?: string;
   publishedAt?: string | null;
+  postingStartDate?: string | null;
+  postingEndDate?: string | null;
+  shifts?: string[];
+  pwdFriendly?: boolean;
+  seniorFriendly?: boolean;
+  accessibilityFeatures?: string[];
 };
 
 export type JobPostStatus = JobPost["status"];

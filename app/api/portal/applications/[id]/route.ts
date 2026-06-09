@@ -33,7 +33,10 @@ export async function PATCH(
   }
 
   const jobPost = db.jobPosts.find(post => post.id === application.jobPostId);
-  if (!jobPost || jobPost.employerId !== employerProfile.id) {
+  const ownsJobPost =
+    jobPost &&
+    (jobPost.employerId === employerProfile.id || jobPost.employerId === user.id);
+  if (!jobPost || !ownsJobPost) {
     return NextResponse.json({ error: "Unauthorized: not your application" }, { status: 403 });
   }
 
@@ -46,7 +49,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
   }
 
-  await writeDatabase(db);
+  try {
+    await writeDatabase(db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save interview schedule";
+    console.error("Application status update failed:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   return NextResponse.json({ application: updatedApp });
 }

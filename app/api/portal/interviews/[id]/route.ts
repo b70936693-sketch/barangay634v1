@@ -26,7 +26,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const application = db.applications.find((item) => item.id === interviewRecord.applicationId);
   const jobPost = application ? db.jobPosts.find((post) => post.id === application.jobPostId) : null;
 
-  if (!application || !jobPost || jobPost.employerId !== employerProfile.id) {
+  const ownsJobPost =
+    jobPost &&
+    (jobPost.employerId === employerProfile.id || jobPost.employerId === user.id);
+  if (!application || !jobPost || !ownsJobPost) {
     return NextResponse.json({ error: "Unauthorized: not your interview" }, { status: 403 });
   }
 
@@ -36,6 +39,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Interview not found" }, { status: 404 });
   }
 
-  await writeDatabase(db);
+  try {
+    await writeDatabase(db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save interview schedule";
+    console.error("Interview reschedule failed:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   return NextResponse.json({ interview, portal: withDerivedData(db) });
 }

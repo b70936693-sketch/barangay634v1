@@ -17,8 +17,7 @@ import {
 import { Search, Filter, Mail, Phone, CheckCircle, XCircle, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useListJobPostApplicants, useUpdateApplicantStatus } from "../api-client-react";
-import type { Database } from "@/types/database";
-
+import { getApplicantAppliedDate, getApplicantContact, getApplicantName } from "@/app/employer/lib/applicant-display";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 
@@ -37,30 +36,32 @@ export function ApplicantModal({ jobPostId, open, onClose }: ApplicantModalProps
   const { data: applicants = [], isLoading } = useListJobPostApplicants(jobPostId);
 
   const filteredApplicants = applicants.filter((app: any) => {
-    const matchesSearch = searchTerm === "" || 
-      app.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const name = getApplicantName(app);
+    const matchesSearch =
+      searchTerm === "" ||
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.position?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
-    const colors = {
-      'pending': { bg: 'yellow', text: 'yellow' },
-      'reviewed': { bg: 'blue', text: 'blue' },
-      'interview': { bg: 'cyan', text: 'cyan' },
-      'hired': { bg: 'green', text: 'green' },
-      'rejected': { bg: 'red', text: 'red' },
+    const colors: Record<string, { bg: string; text: string; label: string }> = {
+      pending: { bg: "yellow", text: "yellow", label: "Pending" },
+      reviewing: { bg: "blue", text: "blue", label: "Reviewing" },
+      for_interview: { bg: "cyan", text: "cyan", label: "For Interview" },
+      hired: { bg: "green", text: "green", label: "Hired" },
+      rejected: { bg: "red", text: "red", label: "Rejected" },
     };
-    const c = colors[status as keyof typeof colors] || { bg: 'slate', text: 'slate' };
+    const c = colors[status] || { bg: "slate", text: "slate", label: status };
     return (
       <Badge 
         variant="secondary" 
         className={`bg-${c.bg}-500/20 text-${c.text}-700 border-${c.bg}-500/30`}
       >
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {c.label}
       </Badge>
     );
   };
@@ -72,7 +73,7 @@ export function ApplicantModal({ jobPostId, open, onClose }: ApplicantModalProps
         onSuccess: () => {
           toast({
             title: `Applicant ${status}`,
-            description: `${applicant.full_name} updated to ${status}.`,
+            description: `${getApplicantName(applicant)} updated to ${status}.`,
           });
         },
       }
@@ -107,8 +108,8 @@ export function ApplicantModal({ jobPostId, open, onClose }: ApplicantModalProps
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="reviewed">Reviewed</SelectItem>
-              <SelectItem value="interview">Interview</SelectItem>
+              <SelectItem value="reviewing">Reviewing</SelectItem>
+              <SelectItem value="for_interview">For Interview</SelectItem>
               <SelectItem value="hired">Hired</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
@@ -142,8 +143,8 @@ export function ApplicantModal({ jobPostId, open, onClose }: ApplicantModalProps
               ) : filteredApplicants.length ? (
                 filteredApplicants.map((app: any) => (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium">{app.full_name}</TableCell>
-                    <TableCell>{format(new Date(app.applied_date), "MMM dd")}</TableCell>
+                    <TableCell className="font-medium">{getApplicantName(app)}</TableCell>
+                    <TableCell>{format(new Date(getApplicantAppliedDate(app)), "MMM dd")}</TableCell>
                     <TableCell>{getStatusBadge(app.status)}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-sm">
@@ -153,7 +154,7 @@ export function ApplicantModal({ jobPostId, open, onClose }: ApplicantModalProps
                         </div>
                         <div className="flex items-center gap-1">
                           <Phone className="h-3 w-3" />
-                          {app.phone}
+                          {getApplicantContact(app)}
                         </div>
                       </div>
                     </TableCell>

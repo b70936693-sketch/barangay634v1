@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePortalRole } from "@/lib/backend/auth";
 import { getCurrentPortalUser } from "@/lib/backend/auth";
 import { supabaseStore, getJobPostApplications } from "@/lib/backend/supabase-store";
-import { readDatabase } from "@/lib/backend/store";
+import { mapApplicationRow, readDatabase } from "@/lib/backend/store";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 
@@ -78,12 +78,9 @@ export async function GET(
   // Otherwise, fall back to the JSON store (applicants submission writes to JSON).
   try {
     if (supabaseAdmin) {
-      const { data: apps, error: appError } = await getJobPostApplications(params.id) as any;
-
-      if (appError) {
-        console.error("Supabase error:", appError);
-      } else if (Array.isArray(apps)) {
-        return NextResponse.json({ applications: apps || [] });
+      const apps = await getJobPostApplications(params.id);
+      if (Array.isArray(apps)) {
+        return NextResponse.json({ applications: apps.map(mapApplicationRow) });
       }
     }
   } catch (e) {
@@ -91,19 +88,17 @@ export async function GET(
   }
 
   const db = await readDatabase();
-  const employerJobPostIds: string[] = db.jobPosts
-    .filter((p: any) => p.employerId === employerProfileId)
-    .map((p: any) => p.id);
 
   const appsFromJson = db.applications
-    .filter((app: any) => app.jobPostId === params.id && employerJobPostIds.includes(app.jobPostId))
-    .map((app: any) => ({
-      ...app,
-      appliedDate: app.appliedDate,
-    }));
+    .filter((app) => {
+      if (app.jobPostId !== params.id) return false;
+      const post = db.jobPosts.find((p) => p.id === app.jobPostId);
+      if (!post) return false;
+      return post.employerId === employerProfileId || post.employerId === employerUserId;
+    })
+    .map(mapApplicationRow);
 
-
-  return NextResponse.json({ applications: appsFromJson || [] });
+  return NextResponse.json({ applications: appsFromJson });
 
 
 

@@ -18,21 +18,9 @@ function camelToSnake(obj: any): any {
 }
 
 export async function POST(request: Request) {
-  let user = await requirePortalRole(request, "applicant");
-  if (!user) {
-    // TEMP: Allow any authenticated user to submit applications
-    const { portalUser } = await getCurrentPortalUser(request);
-    if (!portalUser) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    // Ensure user has applicant role
-    if (portalUser.role !== 'applicant') {
-      portalUser.role = 'applicant';
-      const db = await readDatabase();
-      const { writeDatabase } = await import("@/lib/backend/store");
-      await writeDatabase(db);
-    }
-    user = portalUser;
+  const { portalUser } = await getCurrentPortalUser(request);
+  if (!portalUser) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await request.json();
@@ -43,6 +31,25 @@ export async function POST(request: Request) {
   });
 
   const db = await readDatabase();
+
+  // Ensure portal user exists in the active store and has applicant role
+  let userRecord = db.users.find((record) => record.id === portalUser.id);
+  if (!userRecord) {
+    userRecord = {
+      id: portalUser.id,
+      role: "applicant",
+      fullName: portalUser.fullName || "",
+      email: portalUser.email || "",
+      phone: portalUser.phone || "",
+      status: portalUser.status || "pending",
+      createdAt: new Date().toISOString(),
+    };
+    db.users.unshift(userRecord);
+  } else if (userRecord.role !== "applicant") {
+    userRecord.role = "applicant";
+  }
+
+  const user = { ...portalUser, role: "applicant" as const };
   let applicantProfile = getApplicantProfileByUserId(db, user.id);
   
   if (!applicantProfile) {
@@ -94,9 +101,21 @@ export async function POST(request: Request) {
       return { error: "Job post not approved by admin yet" } as const;
     }
 
-    const employerProfile = db.employerProfiles.find((p) => p.id === jobPost.employerId);
+    const employerProfile =
+      db.employerProfiles.find((p) => p.id === jobPost.employerId) ??
+      db.employerProfiles.find((p) => p.userId === jobPost.employerId);
     if (!employerProfile || !employerProfile.verified) {
       return { error: "Employer not verified by admin yet" } as const;
+    }
+
+    const alreadyApplied = db.applications.some(
+      (existing) =>
+        existing.jobPostId === jobPostId &&
+        (existing.applicantId === applicantProfile.id ||
+          existing.email?.toLowerCase() === (transformedBody.email ?? "").toLowerCase()),
+    );
+    if (alreadyApplied) {
+      return { error: "You have already applied to this job post" } as const;
     }
 
     return createApplication(db, {
@@ -116,7 +135,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: (application as any)?.error ?? "Job post not found or inactive" }, { status: 400 });
   }
 
-  await writeDatabase(db);
+  try {
+    await writeDatabase(db);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save application";
+    console.error("Application write failed:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   return NextResponse.json({ application });
 }
 

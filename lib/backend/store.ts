@@ -116,25 +116,53 @@ function mapJobPostRow(row: unknown): JobPost {
     adminRequirements: normalizeArray<string>(r.admin_requirements ?? r.adminRequirements ?? []),
     rejectionNotes: (r.rejection_notes ?? r.rejectionNotes ?? "") as string,
     publishedAt: normalizeOptionalTimestamp(r.published_at ?? r.publishedAt ?? null),
+    postingStartDate: normalizeOptionalTimestamp(r.posting_start_date ?? r.postingStartDate ?? null),
+    postingEndDate: normalizeOptionalTimestamp(r.posting_end_date ?? r.postingEndDate ?? null),
+    shifts: normalizeArray<string>(r.shifts ?? []),
+    pwdFriendly: Boolean(r.pwd_friendly ?? r.pwdFriendly ?? false),
+    seniorFriendly: Boolean(r.senior_friendly ?? r.seniorFriendly ?? false),
+    accessibilityFeatures: normalizeArray<string>(r.accessibility_features ?? r.accessibilityFeatures ?? []),
   };
 }
 
-function mapApplicationRow(row: unknown): ApplicationRecord {
-  const r = row as Record<string, unknown>;
-  
-  const rawDocuments = r.documents ?? r.documents ?? [];
+function unwrapApplicationData(row: Record<string, unknown>): Record<string, unknown> {
+  if (row.data && typeof row.data === "object" && !Array.isArray(row.data)) {
+    return { ...(row.data as Record<string, unknown>), ...row };
+  }
+  return row;
+}
+
+function fromSupabaseApplicationStatus(status: string): ApplicationRecord["status"] {
+  if (status === "reviewed") return "reviewing";
+  if (status === "interview") return "for_interview";
+  if (["pending", "reviewing", "for_interview", "hired", "rejected"].includes(status)) {
+    return status as ApplicationRecord["status"];
+  }
+  return "pending";
+}
+
+function toSupabaseApplicationStatus(status: ApplicationRecord["status"]): string {
+  if (status === "reviewing") return "reviewed";
+  if (status === "for_interview") return "interview";
+  return status;
+}
+
+export function mapApplicationRow(row: unknown): ApplicationRecord {
+  const r = unwrapApplicationData(row as Record<string, unknown>);
+
+  const rawDocuments = r.documents ?? [];
   const normalizedDocuments = normalizeArray<unknown>(rawDocuments);
 
   return {
     id: r.id as string,
-    jobPostId: (r.job_post_id ?? r.jobPostId ?? "") as string,
-    applicantId: (r.applicant_id ?? r.applicantId ?? "") as string,
+    jobPostId: (r.jobPostId ?? r.job_post_id ?? r.job_id ?? "") as string,
+    applicantId: (r.applicantId ?? r.applicant_id ?? "") as string,
     fullName: (r.full_name ?? r.fullName ?? "") as string,
     email: (r.email ?? "") as string,
-    contact: (r.contact ?? "") as string,
+    contact: (r.contact ?? r.phone ?? "") as string,
     position: (r.position ?? "") as string,
-    appliedDate: normalizeTimestamp((r.applied_date ?? r.appliedDate) as unknown),
-    status: r.status as ApplicationRecord["status"],
+    appliedDate: normalizeTimestamp((r.applied_date ?? r.submitted_at ?? r.appliedDate) as unknown),
+    status: fromSupabaseApplicationStatus(String(r.status ?? "pending")),
     availability: (r.availability ?? "") as string,
     shiftPreference: (r.shift_preference ?? r.shiftPreference ?? "") as string,
     introduction: (r.introduction ?? "") as string,
@@ -142,16 +170,29 @@ function mapApplicationRow(row: unknown): ApplicationRecord {
   };
 }
 
+function normalizeInterviewDate(value: unknown): string {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function mapInterviewRow(row: unknown): InterviewRecord {
   const r = row as Record<string, unknown>;
-  
+
   return {
     id: r.id as string,
-    applicationId: (r.application_id ?? r.applicationId ?? "") as string,
+    applicationId: (r.applicationId ?? r.application_id ?? "") as string,
     applicantName: (r.applicant_name ?? r.applicantName ?? "") as string,
     position: (r.position ?? "") as string,
     contact: (r.contact ?? "") as string,
-    interviewDate: (r.interview_date ?? r.interviewDate ?? "") as string,
+    interviewDate: normalizeInterviewDate(r.interview_date ?? r.interviewDate),
     interviewTime: (r.interview_time ?? r.interviewTime ?? "") as string,
     location: (r.location ?? "") as string,
   };
@@ -484,33 +525,36 @@ function toSupabaseJobPost(post: JobPost) {
 }
 
 function toSupabaseApplication(application: ApplicationRecord) {
+  // Live Supabase table uses camelCase FK columns (jobPostId, applicantId)
+  // with snake_case detail columns (full_name, applied_date, etc.).
   return {
     id: application.id,
-    job_post_id: application.jobPostId,
-    applicant_id: application.applicantId,
+    jobPostId: application.jobPostId,
+    applicantId: application.applicantId,
     full_name: application.fullName,
     email: application.email,
     contact: application.contact,
     position: application.position,
     applied_date: application.appliedDate,
     status: application.status,
-    availability: application.availability,
-    shift_preference: application.shiftPreference,
-    introduction: application.introduction,
-    documents: application.documents,
+    availability: application.availability ?? "",
+    shift_preference: application.shiftPreference ?? "",
+    introduction: application.introduction ?? "",
+    documents: application.documents ?? [],
   };
 }
 
 function toSupabaseInterview(interview: InterviewRecord) {
+  // Live Supabase table uses camelCase applicationId with snake_case detail columns.
   return {
     id: interview.id,
-    application_id: interview.applicationId,
+    applicationId: interview.applicationId,
     applicant_name: interview.applicantName,
     position: interview.position,
     contact: interview.contact,
-    interview_date: interview.interviewDate,
+    interview_date: normalizeInterviewDate(interview.interviewDate) || interview.interviewDate,
     interview_time: interview.interviewTime,
-    location: interview.location,
+    location: interview.location ?? "Barangay 634 Hall",
   };
 }
 
@@ -702,7 +746,21 @@ export async function writeDatabase(db: PortalDatabase, safeMode = true) {
         }
 
         if (db.applications.length) {
-          await supabaseAdmin.from('applications').upsert(db.applications.map(toSupabaseApplication), { onConflict: 'id' });
+          const { error: applicationsError } = await supabaseAdmin
+            .from('applications')
+            .upsert(db.applications.map(toSupabaseApplication), { onConflict: 'id' });
+          if (applicationsError) {
+            throw new Error(`Failed to save application: ${applicationsError.message}`);
+          }
+        }
+
+        if (db.interviews.length) {
+          const { error: interviewsError } = await supabaseAdmin
+            .from('interviews')
+            .upsert(db.interviews.map(toSupabaseInterview), { onConflict: 'id' });
+          if (interviewsError) {
+            throw new Error(`Failed to save interview: ${interviewsError.message}`);
+          }
         }
 
         // CRITICAL: persist audit logs in Supabase safe mode, otherwise /admin/audit-logs shows empty.
@@ -1123,7 +1181,9 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
   // Filter job posts for current employer
   let jobPostsBase = db.jobPosts;
   if (currentUser?.role === "employer" && employer) {
-    jobPostsBase = db.jobPosts.filter(post => post.employerId === employer.id);
+    jobPostsBase = db.jobPosts.filter(
+      (post) => post.employerId === employer.id || post.employerId === currentUser.id,
+    );
   }
 
   // Applicants should only be able to see admin-verified (approved) job posts.
@@ -1142,6 +1202,7 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
         companyName: postEmployer?.companyName ?? "Barangay Employer",
         contactPerson: postEmployer?.contactPerson ?? "Employer Contact",
         location: postEmployer?.location ?? "Barangay 634",
+        employerVerified: postEmployer?.verified ?? false,
       };
     })
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -1222,7 +1283,11 @@ export function withDerivedData(db: PortalDatabase, currentUser: UserRecord | nu
 
   const availableSwipeJobs = currentApplicantProfile
     ? jobPosts
-        .filter((post) => post.status === "active")
+        .filter((post) => {
+          if (post.status !== "active") return false;
+          const postEmployer = db.employerProfiles.find((profile) => profile.id === post.employerId);
+          return postEmployer?.verified === true;
+        })
         .map((post) => ({
           ...post,
           alreadyApplied: applicantApplications.some((application) => application.jobPostId === post.id),
@@ -1683,9 +1748,9 @@ export function updateJobPostStatusWithNotes(
   const notesSummary = trimmed.length ? trimmed : "(no notes provided)";
 
   // store the notes on the in-memory post for UI
-  item.rejectionNotes = trimmed.length ? trimmed : "";
-  if (status !== "rejected") {
-    // clear rejection notes when not rejected
+  if (status === "rejected" || status === "closed") {
+    item.rejectionNotes = trimmed.length ? trimmed : "";
+  } else {
     item.rejectionNotes = "";
   }
 
